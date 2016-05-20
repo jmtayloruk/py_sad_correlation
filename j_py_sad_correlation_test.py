@@ -5,17 +5,27 @@ from j_py_sad_correlation import *
 import numpy as N
 import time
 
-a = N.random.randint(0, 100, (16,16))+0.0
-b = N.random.randint(0, 100, (32,32))+0.0
+N.random.seed(1)
 
+smallIWSize = 32
+largeIWSide = 64
+
+# Generate two arrays containing random integers
+a = N.round(N.random.randint(0, 100, (smallIWSize,smallIWSize))+0.0)
+b = N.round(N.random.randint(0, 100, (largeIWSide,largeIWSide))+0.0)
+
+# Test performance of my C code, including conversion to the specified type
+typeToUse = 'uint8'
 start = time.time()
-sad_using_c_code = sad_correlation(a, b)
-print sad_using_c_code
+sad_using_c_code = sad_correlation(a.astype(typeToUse), b.astype(typeToUse))
 print time.time() - start
+print sad_using_c_code
 
+# Test SSD calculation
 ssd_using_c_code = ssd_correlation(a, b)
-print ssd_using_c_code
+#print ssd_using_c_code
 
+# Generate SAD result using pure python code, for comparison
 start = time.time()
 sad_using_python_code = N.zeros((b.shape[0] - a.shape[0] + 1, b.shape[1] - a.shape[1] + 1))
 for y in range(sad_using_python_code.shape[1]):

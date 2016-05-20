@@ -25,7 +25,7 @@ j_py_sad_correlation = Extension('j_py_sad_correlation',
 	sources = ['j_py_sad_correlation.cpp', 'common/jPythonArray.cpp', 'common/jPythonCommon.cpp', 'common/jAssert.cpp', 'common/DebugPrintf_UNIX.cpp'],
 # Note: the -arch stuff below may be needed for OS X, but should be removed for Linux since it's a mac-specific parameter that is not recognised.
 	extra_link_args=['-arch', ARCH2],
-	extra_compile_args=['-O4', '-arch', ARCH2]
+	extra_compile_args=['-O4', '-mssse3', '-arch', ARCH2]
 )
 BUILD_MODULES.append(j_py_sad_correlation)
 
