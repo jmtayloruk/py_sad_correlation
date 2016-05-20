@@ -125,6 +125,8 @@ template<> void correlation3<true, int>(JPythonArray2D<int> &window1, JPythonArr
 	
 	Check16BitData(window1);
 	Check16BitData(window2);
+	if (maxDX * maxDY >= (1<<15))
+		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "WOAH - that's a seriously big correlation matrices! This integer-based SAD code only accepts IWs that lead to correlation matrices with up to 2^15 entries.");
 
 	// Now get down to business!
 	for (int dy = 0; dy <= maxDY; dy++)

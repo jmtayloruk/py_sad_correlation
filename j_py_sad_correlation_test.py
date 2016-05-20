@@ -8,11 +8,11 @@ import time
 N.random.seed(1)
 
 smallIWSize = 32
-largeIWSide = 64
+largeIWSize = 64
 
 # Generate two arrays containing random integers
 a = N.round(N.random.randint(0, 100, (smallIWSize,smallIWSize))+0.0)
-b = N.round(N.random.randint(0, 100, (largeIWSide,largeIWSide))+0.0)
+b = N.round(N.random.randint(0, 100, (largeIWSize,largeIWSize))+0.0)
 
 # Test performance of my C code, including conversion to the specified type
 typeToUse = 'uint8'
