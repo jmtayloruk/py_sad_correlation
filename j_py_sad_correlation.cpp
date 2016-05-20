@@ -27,6 +27,14 @@ inline int OrOver32BitInts(void *i)
     return l[0] | l[1] | l[2] | l[3];
 }
 
+// A bit of hoop-jumping here to obtain an abs function that can be called with both double and integer arguments
+template<class TYPE> TYPE absFunc(TYPE a);
+template<> double absFunc<double>(double a) { return fabs(a); }
+template<> int absFunc<int>(int a) { return abs(a); }
+// Things get messy for the 8-bit case because we were working with an unsigned type!
+// Fortunately this shouldn't get called, since I have included a template specialization for that case.
+template<> unsigned char absFunc<unsigned char>(unsigned char a) { ALWAYS_ASSERT(0); }
+
 template<bool sad, class TYPE> void correlation3(JPythonArray2D<TYPE> &window1, JPythonArray2D<TYPE> &window2, JPythonArray2D<double> &result, int maxDX, int maxDY)
 {
     // Generic version
@@ -43,7 +51,7 @@ template<bool sad, class TYPE> void correlation3(JPythonArray2D<TYPE> &window1, 
                 for (int y = 0; y < w1Height; y++)
                     for (int x = 0; x < w1Width; x++)
                     {
-                        sum += abs(window1[y][x] - window2[y+dy][x+dx]);
+                        sum += absFunc<TYPE>(window1[y][x] - window2[y+dy][x+dx]);
                     }
             }
             else
@@ -73,8 +81,6 @@ template<> void correlation3<true, unsigned char>(JPythonArray2D<unsigned char> 
             __m128i sumVec = (__m128i)_mm_setzero_ps();
             for (int y = 0; y < w1Height; y++)
             {
-				double start = sum;
-				__m128i startSumVec = sumVec;
                 int x = 0;
                 for (; x <= w1Width - 16; x += 16)
                     sumVec = _mm_add_epi64(sumVec, _mm_sad_epu8(_mm_loadu_si128((__m128i*)&window1[y][x]), _mm_loadu_si128((__m128i*)&window2[y+dy][x+dx])));
