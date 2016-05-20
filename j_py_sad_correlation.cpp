@@ -21,6 +21,12 @@ inline int SumOver32BitInts(void *i)
     return l[0] + l[1] + l[2] + l[3];
 }
 
+inline int OrOver32BitInts(void *i)
+{
+    uint32_t *l = (uint32_t *)i;
+    return l[0] | l[1] | l[2] | l[3];
+}
+
 template<bool sad, class TYPE> void correlation3(JPythonArray2D<TYPE> &window1, JPythonArray2D<TYPE> &window2, JPythonArray2D<double> &result, int maxDX, int maxDY)
 {
     // Generic version
@@ -80,6 +86,28 @@ template<> void correlation3<true, unsigned char>(JPythonArray2D<unsigned char> 
         }
 }
 
+void Check16BitData(JPythonArray2D<int> &window1)
+{
+	// Although this is in principle unnecessary and therefore inefficient, I want to include a test to ensure no values
+	// are larger than 2^16-1. The test should be quick, and it will catch what would otherwise be nasty bugs
+	int w1Width = window1.Dims()[1];
+	int w1Height = window1.Dims()[0];
+
+	__m128i orVec = (__m128i)_mm_setzero_ps();
+	int orRest = 0;
+	for (int y = 0; y < w1Height; y++)
+	{
+		int x = 0;
+		for (; x <= w1Width - 4; x += 4)
+			orVec = _mm_or_si128(orVec, _mm_loadu_si128((__m128i*)&window1[y][x]));
+		for (; x < w1Width; x++)
+			orRest |= window1[y][x];
+	}
+	int result = orRest | OrOver32BitInts(&orVec);
+	if (result & 0xFFFF0000)
+        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "ERROR - you passed in values greater than 2^16 - 1 to the fast SAD code!");
+}
+
 template<> void correlation3<true, int>(JPythonArray2D<int> &window1, JPythonArray2D<int> &window2, JPythonArray2D<double> &result, int maxDX, int maxDY)
 {
     // Specialized version for SAD with 32-bit data, BUT we assume we will not overflow an int when we sum across a small IW.
@@ -88,7 +116,12 @@ template<> void correlation3<true, int>(JPythonArray2D<int> &window1, JPythonArr
     // For every possible shift of 'a' relative to 'b', calculate the SAD
     int w1Width = window1.Dims()[1];
     int w1Height = window1.Dims()[0];
-    for (int dy = 0; dy <= maxDY; dy++)
+	
+	Check16BitData(window1);
+	Check16BitData(window2);
+
+	// Now get down to business!
+	for (int dy = 0; dy <= maxDY; dy++)
         for (int dx = 0; dx <= maxDX; dx++)
         {
             double sum = 0;
@@ -97,12 +130,7 @@ template<> void correlation3<true, int>(JPythonArray2D<int> &window1, JPythonArr
             {
                 int x = 0;
                 for (; x <= w1Width - 4; x += 4)
-				{
-					__m128i __a, r;
-					r = _mm_abs_epi32(__a);
-
                     sumVec = _mm_add_epi32(sumVec, _mm_abs_epi32(_mm_sub_epi32(_mm_loadu_si128((__m128i*)&window1[y][x]), _mm_loadu_si128((__m128i*)&window2[y+dy][x+dx]))));
-				}
                 for (; x < w1Width; x++)
                     sum += abs(window1[y][x] - window2[y+dy][x+dx]);
             }
@@ -135,7 +163,7 @@ template<class TYPE> PyObject *correlation2(PyArrayObject *a, PyArrayObject *b, 
 	
     if ((PyArray_ITEMSIZE(a) != sizeof(TYPE)) || (PyArray_ITEMSIZE(b) != sizeof(TYPE)))
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Something weird happened with item sizes %d and %d, relative to expected size %d", PyArray_ITEMSIZE(a), PyArray_ITEMSIZE(b), sizeof(TYPE));
+        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Something weird happened with item sizes %d and %d, relative to expected size %d", (int)PyArray_ITEMSIZE(a), (int)PyArray_ITEMSIZE(b), (int)sizeof(TYPE));
         return NULL;
     }
     
