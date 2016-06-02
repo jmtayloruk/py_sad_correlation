@@ -1,37 +1,34 @@
-
 from distutils.core import setup, Extension
+import numpy	# So we can work out where the numpy headers live!
+import platform
+import os
 
-#
-# Global parameters
-#
-ARCH='i386'
-ARCH2='x86_64'
+# Work out if we should be building a 32 or 64 bit library
+# Apparently this "can be a bit fragile" on OS X:
+# http://stackoverflow.com/questions/1405913/how-do-i-determine-if-my-python-shell-is-executing-in-32bit-or-64bit-mode-on-os
+# but I'll try it and see if it works out ok for now.
+archInfo = platform.architecture()
+if (archInfo[0] == '32bit'):
+	ARCH = ['-arch', 'i386']
+else:
+	ARCH = ['-arch', 'x86_64']
 
-BUILD_MODULES=[]
+# Determine if the -arch parameter is actually even available on this platform,
+# by running a dummy gcc command that includes that option
+# If it is not, then we will not include any arch-related options at all for gcc.
+theString = 'gcc ' + ARCH[0] + ' ' + ARCH[1] + ' -E -dM - < /dev/null > /dev/null 2>&1'
+result = os.system(theString)
+if (result != 0):
+	ARCH = []
 
-
+BUILD_MODULES = []
 
 j_py_sad_correlation = Extension('j_py_sad_correlation',
-# Note that on my OS X machine the following is needed to work with the native python install
-# include_dirs = ['/usr/local/include',
-# '/Library/Python/2.6/site-packages/numpy/core/include/'],
-#
-# I also have problems with Anaconda having installed python 3. I need to locally edit $PATH to remove anaconda because that installs python 3 and the code I have is not compatible with python 3!
-# Need to work out a solution to this, and also a solution that enables me NOT to hard-code the path to the numpy header files
-#
-# Anyway, the following works on the lab mac computer
-	include_dirs = ['/Users/jtlab/Anaconda/include','/Users/jtlab/Anaconda/pkgs/numpy-1.10.4-py27_0/lib/python2.7/site-packages/numpy/core/include'],
-	library_dirs=['/Users/jtlab/Anaconda/lib/'],
-	sources = ['j_py_sad_correlation.cpp', 'common/jPythonArray.cpp', 'common/jPythonCommon.cpp', 'common/jAssert.cpp', 'common/DebugPrintf_UNIX.cpp'],
-# Note: the -arch stuff below may be needed for OS X, but should be removed for Linux since it's a mac-specific parameter that is not recognised.
-	extra_link_args=['-arch', ARCH2],
-	extra_compile_args=['-O4', '-mssse3', '-arch', ARCH2]
+	include_dirs = ['/usr/local/include', numpy.get_include()],
+	sources = ['j_py_sad_correlation.cpp', 'common/jPythonArray.cpp', 'common/jPythonCommon.cpp', 'common/jAssert.cpp', 'common/DebugPrintf_Unix.cpp'],
+	extra_link_args = ARCH,
+	extra_compile_args = ['-O4', '-mssse3'] + ARCH
 )
 BUILD_MODULES.append(j_py_sad_correlation)
 
-
 setup (ext_modules = BUILD_MODULES)
-
-
-
-
