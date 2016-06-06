@@ -15,6 +15,7 @@ a = N.round(N.random.randint(0, 100, (smallIWSize,smallIWSize))+0.0)
 b = N.round(N.random.randint(0, 100, (largeIWSize,largeIWSize))+0.0)
 
 # Test performance of my C code, including conversion to the specified type
+# 'uint8', uint16', 'int32'
 typeToUse = 'uint8'
 start = time.time()
 sad_using_c_code = sad_correlation(a.astype(typeToUse), b.astype(typeToUse))

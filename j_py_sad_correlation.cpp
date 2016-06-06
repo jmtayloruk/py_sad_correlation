@@ -92,6 +92,44 @@ template<> void correlation3<true, unsigned char>(JPythonArray2D<unsigned char> 
         }
 }
 
+template<> void correlation3<true, unsigned short>(JPythonArray2D<unsigned short> &window1, JPythonArray2D<unsigned short> &window2, JPythonArray2D<double> &result, int maxDX, int maxDY)
+{
+    // Specialized version for SAD with 8-bit data
+    // For every possible shift of 'a' relative to 'b', calculate the SAD
+    int w1Width = window1.Dims()[1];
+    int w1Height = window1.Dims()[0];
+	__m128i ones = _mm_set1_epi16(1);
+
+	if (maxDX * maxDY >= (1<<15))
+		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "WOAH - that's a seriously big correlation matrix! This integer-based SAD code only accepts IWs that lead to correlation matrices with up to 2^15 entries.");
+
+	for (int dy = 0; dy <= maxDY; dy++)
+        for (int dx = 0; dx <= maxDX; dx++)
+        {
+            double sum = 0;
+            __m128i sumVec = (__m128i)_mm_setzero_ps();
+            for (int y = 0; y < w1Height; y++)
+            {
+                int x = 0;
+                for (; x <= w1Width - 8; x += 8)
+				{
+					__m128i a = _mm_loadu_si128((__m128i*)&window1[y][x]);
+					__m128i b = _mm_loadu_si128((__m128i*)&window2[y+dy][x+dx]);
+					__m128i sad = _mm_abs_epi16(_mm_sub_epi16(a, b));
+					// Even though this seems a bit odd, it turns out that the madd instruction
+					// accumulates its results in a 32-bit integer. Thus this actually achieves
+					// exactly what we want, even though there is no dedicated instruction e.g.
+					// to do 16-bit SAD.
+					sumVec = _mm_add_epi16(_mm_madd_epi16(sad, ones), sumVec);
+				}
+				for (; x < w1Width; x++)
+                    sum += abs(window1[y][x] - window2[y+dy][x+dx]);
+            }
+            sum += SumOver32BitInts(&sumVec);
+            result[dy][dx] = sum;
+        }
+}
+
 void Check16BitData(JPythonArray2D<int> &window1)
 {
 	// Although this is in principle unnecessary and therefore inefficient, I want to include a test to ensure no values
@@ -126,7 +164,7 @@ template<> void correlation3<true, int>(JPythonArray2D<int> &window1, JPythonArr
 	Check16BitData(window1);
 	Check16BitData(window2);
 	if (maxDX * maxDY >= (1<<15))
-		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "WOAH - that's a seriously big correlation matrices! This integer-based SAD code only accepts IWs that lead to correlation matrices with up to 2^15 entries.");
+		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "WOAH - that's a seriously big correlation matrix! This integer-based SAD code only accepts IWs that lead to correlation matrices with up to 2^15 entries.");
 
 	// Now get down to business!
 	for (int dy = 0; dy <= maxDY; dy++)
@@ -204,6 +242,8 @@ extern "C" PyObject *correlation(PyObject *self, PyObject *args, bool sad)
         return correlation2<double>(a, b, sad);
     else if (PyArray_TYPE(a) == ArrayType<unsigned char>())
         return correlation2<unsigned char>(a, b, sad);
+    else if (PyArray_TYPE(a) == ArrayType<unsigned short>())
+        return correlation2<unsigned short>(a, b, sad);
     else if (PyArray_TYPE(a) == ArrayType<int>())
         return correlation2<int>(a, b, sad);
     else
