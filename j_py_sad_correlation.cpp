@@ -98,11 +98,12 @@ template<> void correlation3<true, unsigned short>(JPythonArray2D<unsigned short
     // For every possible shift of 'a' relative to 'b', calculate the SAD
     int w1Width = window1.Dims()[1];
     int w1Height = window1.Dims()[0];
-	__m128i ones = _mm_set1_epi16(1);
+	__m128i zeros = _mm_set1_epi16(0);
 
 	if (maxDX * maxDY >= (1<<15))
 		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "WOAH - that's a seriously big correlation matrix! This integer-based SAD code only accepts IWs that lead to correlation matrices with up to 2^15 entries.");
 
+#if 1
 	for (int dy = 0; dy <= maxDY; dy++)
         for (int dx = 0; dx <= maxDX; dx++)
         {
@@ -115,12 +116,18 @@ template<> void correlation3<true, unsigned short>(JPythonArray2D<unsigned short
 				{
 					__m128i a = _mm_loadu_si128((__m128i*)&window1[y][x]);
 					__m128i b = _mm_loadu_si128((__m128i*)&window2[y+dy][x+dx]);
-					__m128i sad = _mm_abs_epi16(_mm_sub_epi16(a, b));
-					// Even though this seems a bit odd, it turns out that the madd instruction
-					// accumulates its results in a 32-bit integer. Thus this actually achieves
-					// exactly what we want, even though there is no dedicated instruction e.g.
-					// to do 16-bit SAD.
-					sumVec = _mm_add_epi16(_mm_madd_epi16(sad, ones), sumVec);
+					/*	Unpack the low/high (unsigned) shorts into ints and then do the SAD processing on ints.
+						Note that I don't believe we can do this in one go, on 16-bit ints all the way.
+						The _mm_madd_epi16 instruction is handy, but subtracting two 16-bit ints will
+						overflow a 16-bit int	*/
+					__m128i oddA = _mm_unpacklo_epi16(a, zeros);		// Check this is the right byte order. I think it is...
+					__m128i oddB = _mm_unpacklo_epi16(b, zeros);
+					__m128i sad = _mm_abs_epi32(_mm_sub_epi32(oddA, oddB));
+					sumVec = _mm_add_epi32(sumVec, sad);
+					__m128i evenA = _mm_unpackhi_epi16(a, zeros);		// Check this is the right byte order. I think it is...
+					__m128i evenB = _mm_unpackhi_epi16(b, zeros);
+					sad = _mm_abs_epi32(_mm_sub_epi32(evenA, evenB));
+					sumVec = _mm_add_epi32(sumVec, sad);
 				}
 				for (; x < w1Width; x++)
                     sum += abs(window1[y][x] - window2[y+dy][x+dx]);
@@ -128,6 +135,48 @@ template<> void correlation3<true, unsigned short>(JPythonArray2D<unsigned short
             sum += SumOver32BitInts(&sumVec);
             result[dy][dx] = sum;
         }
+#elif 0
+	/*	This variant is slower overall.
+		However, I believe it's the loads that seem to take the time.
+		I say that because adding a lot of extra maths doesn't seem to slow things down at all.
+		I had hoped this would improve the cache usage, but this naive rearrangement hasn't helped.
+		May be worth investigating performance further in future... */
+	for (int dy = 0; dy <= maxDY; dy++)
+        for (int dx = 0; dx <= maxDX; dx++)
+			result[dy][dx] = 0;
+
+	for (int dy = 0; dy <= maxDY; dy++)
+		for (int y = 0; y < w1Height; y++)
+        {
+			for (int dx = 0; dx <= maxDX; dx++)
+            {
+				double sum = 0;
+				__m128i sumVec = (__m128i)_mm_setzero_ps();
+                int x = 0;
+                for (; x <= w1Width - 8; x += 8)
+				{
+					__m128i a = _mm_loadu_si128((__m128i*)&window1[y][x]);
+					__m128i b = _mm_loadu_si128((__m128i*)&window2[y+dy][x+dx]);
+					/*	Unpack the low/high (unsigned) shorts into ints and then do the SAD processing on ints.
+					 Note that I don't believe we can do this in one go, on 16-bit ints all the way.
+					 The _mm_madd_epi16 instruction is handy, but subtracting two 16-bit ints will
+					 overflow a 16-bit int	*/
+					__m128i oddA = _mm_unpacklo_epi16(a, zeros);		// Check this is the right byte order. I think it is...
+					__m128i oddB = _mm_unpacklo_epi16(b, zeros);
+					__m128i sad = _mm_abs_epi32(_mm_sub_epi32(oddA, oddB));
+					sumVec = _mm_add_epi32(sumVec, sad);
+					__m128i evenA = _mm_unpackhi_epi16(a, zeros);		// Check this is the right byte order. I think it is...
+					__m128i evenB = _mm_unpackhi_epi16(b, zeros);
+					sad = _mm_abs_epi32(_mm_sub_epi32(evenA, evenB));
+					sumVec = _mm_add_epi32(sumVec, sad);
+				}
+				for (; x < w1Width; x++)
+                    sum += abs(window1[y][x] - window2[y+dy][x+dx]);
+				sum += SumOver32BitInts(&sumVec);
+				result[dy][dx] += sum;
+            }
+        }
+#endif
 }
 
 void Check16BitData(JPythonArray2D<int> &window1)

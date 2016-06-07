@@ -4,19 +4,35 @@
 from j_py_sad_correlation import *
 import numpy as N
 import time
-
-N.random.seed(1)
+import sys
 
 smallIWSize = 32
 largeIWSize = 64
 
-# Generate two arrays containing random integers
-a = N.round(N.random.randint(0, 100, (smallIWSize,smallIWSize))+0.0)
-b = N.round(N.random.randint(0, 100, (largeIWSize,largeIWSize))+0.0)
-
 # Test performance of my C code, including conversion to the specified type
 # 'uint8', uint16', 'int32'
-typeToUse = 'uint8'
+
+if (len(sys.argv) != 2):
+	print("Run with one argument specifying the data type for the arrays")
+	exit(1)
+typeToUse = sys.argv[1]
+
+# Generate two arrays containing random integers
+N.random.seed(1)
+if (typeToUse == 'uint8'):
+	a = N.round(N.random.randint(0, 255, (smallIWSize,smallIWSize))+0.0)
+	b = N.round(N.random.randint(0, 255, (largeIWSize,largeIWSize))+0.0)
+elif (typeToUse == 'uint16'):
+	a = N.round(N.random.randint(0, 65535, (smallIWSize,smallIWSize))+0.0)
+	b = N.round(N.random.randint(0, 65535, (largeIWSize,largeIWSize))+0.0)
+elif (typeToUse == 'int32'):
+	# Yes. At present int32 is only specified to work with numbers up to 2^16
+	a = N.round(N.random.randint(0, 65535, (smallIWSize,smallIWSize))+0.0)
+	b = N.round(N.random.randint(0, 65535, (largeIWSize,largeIWSize))+0.0)
+else:
+	print("Valid types are uint8, uint16, int32")
+	exit(1);	# Nothing else currently supported.
+
 start = time.time()
 sad_using_c_code = sad_correlation(a.astype(typeToUse), b.astype(typeToUse))
 print time.time() - start
