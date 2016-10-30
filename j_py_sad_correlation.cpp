@@ -1,237 +1,31 @@
 #define PY_ARRAY_UNIQUE_SYMBOL j_sad_pyarray
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include "common/jAssert.h"
+#include "common/PIVImageWindow.h"
 #include "Python.h"
 #include "numpy/arrayobject.h"
 #include "common/jPythonCommon.h"
-//#include "emmintrin.h"
-#include "tmmintrin.h"		// SSSE3 (supplemental SSE3)
 
-inline long long ExtractLongLongPairSum(void *i)
+template<class TYPE> void SetImageWindowForPythonWindow(ImageWindow<TYPE> &imageWindow, JPythonArray2D<TYPE> &pythonWindow)
 {
-	// _mm_extract_epi64 is SSE4.1 so we have to do this one by hand on most machines
-	// TODO: if I have access to any machines that implement this intrinsic, I should implement the option of doing it properly...
-	long long *l = (long long *)i;
-	//	printf("%lld %lld  %llx %llx\n", l[0], l[1], l[0], l[1]);
-	return l[0] + l[1];
+	imageWindow.baseAddr = pythonWindow.Data();
+	imageWindow.width = pythonWindow.Dims()[1];
+	imageWindow.height = pythonWindow.Dims()[0];
+	imageWindow.elementsPerRow = pythonWindow.Strides()[0];
 }
 
-inline int SumOver32BitInts(void *i)
+template<int correlationType, class TYPE> void correlation3(JPythonArray2D<TYPE> &window1, JPythonArray2D<TYPE> &window2, JPythonArray2D<double> &result)
 {
-    uint32_t *l = (uint32_t *)i;
-    return l[0] + l[1] + l[2] + l[3];
-}
-
-inline int OrOver32BitInts(void *i)
-{
-    uint32_t *l = (uint32_t *)i;
-    return l[0] | l[1] | l[2] | l[3];
-}
-
-// A bit of hoop-jumping here to obtain an abs function that can be called with both double and integer arguments
-template<class TYPE> TYPE absFunc(TYPE a);
-template<> double absFunc<double>(double a) { return fabs(a); }
-template<> int absFunc<int>(int a) { return abs(a); }
-// Things get messy for the 8-bit case because we were working with an unsigned type!
-// Fortunately this shouldn't get called, since I have included a template specialization for that case.
-template<> unsigned char absFunc<unsigned char>(unsigned char a) { ALWAYS_ASSERT(0); }
-
-template<bool sad, class TYPE> void correlation3(JPythonArray2D<TYPE> &window1, JPythonArray2D<TYPE> &window2, JPythonArray2D<double> &result, int maxDX, int maxDY)
-{
-    // Generic version
-    // For every possible shift of 'a' relative to 'b', calculate the SAD
-    int w1Width = window1.Dims()[1];
-    int w1Height = window1.Dims()[0];
-    for (int dy = 0; dy <= maxDY; dy++)
-        for (int dx = 0; dx <= maxDX; dx++)
-        {
-            double sum = 0;
-            if (sad)
-            {
-                // Sum of absolute differences
-                for (int y = 0; y < w1Height; y++)
-                    for (int x = 0; x < w1Width; x++)
-                    {
-                        sum += absFunc<TYPE>(window1[y][x] - window2[y+dy][x+dx]);
-                    }
-            }
-            else
-            {
-                // Sum of squared differences
-                for (int y = 0; y < w1Height; y++)
-                    for (int x = 0; x < w1Width; x++)
-                    {
-                        double diff = (window1[y][x] - window2[y+dy][x+dx]);
-                        sum += diff*diff;
-                    }
-            }
-            result[dy][dx] = sum;
-        }
-}
-
-template<> void correlation3<true, unsigned char>(JPythonArray2D<unsigned char> &window1, JPythonArray2D<unsigned char> &window2, JPythonArray2D<double> &result, int maxDX, int maxDY)
-{
-    // Specialized version for SAD with 8-bit data
-    // For every possible shift of 'a' relative to 'b', calculate the SAD
-    int w1Width = window1.Dims()[1];
-    int w1Height = window1.Dims()[0];
-    for (int dy = 0; dy <= maxDY; dy++)
-        for (int dx = 0; dx <= maxDX; dx++)
-        {
-            double sum = 0;
-            __m128i sumVec = (__m128i)_mm_setzero_ps();
-            for (int y = 0; y < w1Height; y++)
-            {
-                int x = 0;
-                for (; x <= w1Width - 16; x += 16)
-                    sumVec = _mm_add_epi64(sumVec, _mm_sad_epu8(_mm_loadu_si128((__m128i*)&window1[y][x]), _mm_loadu_si128((__m128i*)&window2[y+dy][x+dx])));
-                for (; x < w1Width; x++)
-                    sum += abs(window1[y][x] - window2[y+dy][x+dx]);
-            }
-            sum += ExtractLongLongPairSum(&sumVec);
-            result[dy][dx] = sum;
-        }
-}
-
-template<> void correlation3<true, unsigned short>(JPythonArray2D<unsigned short> &window1, JPythonArray2D<unsigned short> &window2, JPythonArray2D<double> &result, int maxDX, int maxDY)
-{
-    // Specialized version for SAD with 8-bit data
-    // For every possible shift of 'a' relative to 'b', calculate the SAD
-    int w1Width = window1.Dims()[1];
-    int w1Height = window1.Dims()[0];
-	__m128i zeros = _mm_set1_epi16(0);
-
-	if (maxDX * maxDY >= (1<<15))
-		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "WOAH - that's a seriously big correlation matrix! This integer-based SAD code only accepts IWs that lead to correlation matrices with up to 2^15 entries.");
-
-#if 1
-	for (int dy = 0; dy <= maxDY; dy++)
-        for (int dx = 0; dx <= maxDX; dx++)
-        {
-            double sum = 0;
-            __m128i sumVec = (__m128i)_mm_setzero_ps();
-            for (int y = 0; y < w1Height; y++)
-            {
-                int x = 0;
-                for (; x <= w1Width - 8; x += 8)
-				{
-					__m128i a = _mm_loadu_si128((__m128i*)&window1[y][x]);
-					__m128i b = _mm_loadu_si128((__m128i*)&window2[y+dy][x+dx]);
-					/*	Unpack the low/high (unsigned) shorts into ints and then do the SAD processing on ints.
-						Note that I don't believe we can do this in one go, on 16-bit ints all the way.
-						The _mm_madd_epi16 instruction is handy, but subtracting two 16-bit ints will
-						overflow a 16-bit int	*/
-					__m128i oddA = _mm_unpacklo_epi16(a, zeros);		// Check this is the right byte order. I think it is...
-					__m128i oddB = _mm_unpacklo_epi16(b, zeros);
-					__m128i sad = _mm_abs_epi32(_mm_sub_epi32(oddA, oddB));
-					sumVec = _mm_add_epi32(sumVec, sad);
-					__m128i evenA = _mm_unpackhi_epi16(a, zeros);		// Check this is the right byte order. I think it is...
-					__m128i evenB = _mm_unpackhi_epi16(b, zeros);
-					sad = _mm_abs_epi32(_mm_sub_epi32(evenA, evenB));
-					sumVec = _mm_add_epi32(sumVec, sad);
-				}
-				for (; x < w1Width; x++)
-                    sum += abs(window1[y][x] - window2[y+dy][x+dx]);
-            }
-            sum += SumOver32BitInts(&sumVec);
-            result[dy][dx] = sum;
-        }
-#elif 0
-	/*	This variant is slower overall.
-		However, I believe it's the loads that seem to take the time.
-		I say that because adding a lot of extra maths doesn't seem to slow things down at all.
-		I had hoped this would improve the cache usage, but this naive rearrangement hasn't helped.
-		May be worth investigating performance further in future... */
-	for (int dy = 0; dy <= maxDY; dy++)
-        for (int dx = 0; dx <= maxDX; dx++)
-			result[dy][dx] = 0;
-
-	for (int dy = 0; dy <= maxDY; dy++)
-		for (int y = 0; y < w1Height; y++)
-        {
-			for (int dx = 0; dx <= maxDX; dx++)
-            {
-				double sum = 0;
-				__m128i sumVec = (__m128i)_mm_setzero_ps();
-                int x = 0;
-                for (; x <= w1Width - 8; x += 8)
-				{
-					__m128i a = _mm_loadu_si128((__m128i*)&window1[y][x]);
-					__m128i b = _mm_loadu_si128((__m128i*)&window2[y+dy][x+dx]);
-					/*	Unpack the low/high (unsigned) shorts into ints and then do the SAD processing on ints.
-					 Note that I don't believe we can do this in one go, on 16-bit ints all the way.
-					 The _mm_madd_epi16 instruction is handy, but subtracting two 16-bit ints will
-					 overflow a 16-bit int	*/
-					__m128i oddA = _mm_unpacklo_epi16(a, zeros);		// Check this is the right byte order. I think it is...
-					__m128i oddB = _mm_unpacklo_epi16(b, zeros);
-					__m128i sad = _mm_abs_epi32(_mm_sub_epi32(oddA, oddB));
-					sumVec = _mm_add_epi32(sumVec, sad);
-					__m128i evenA = _mm_unpackhi_epi16(a, zeros);		// Check this is the right byte order. I think it is...
-					__m128i evenB = _mm_unpackhi_epi16(b, zeros);
-					sad = _mm_abs_epi32(_mm_sub_epi32(evenA, evenB));
-					sumVec = _mm_add_epi32(sumVec, sad);
-				}
-				for (; x < w1Width; x++)
-                    sum += abs(window1[y][x] - window2[y+dy][x+dx]);
-				sum += SumOver32BitInts(&sumVec);
-				result[dy][dx] += sum;
-            }
-        }
-#endif
-}
-
-void Check16BitData(JPythonArray2D<int> &window1)
-{
-	// Although this is in principle unnecessary and therefore inefficient, I want to include a test to ensure no values
-	// are larger than 2^16-1. The test should be quick, and it will catch what would otherwise be nasty bugs
-	int w1Width = window1.Dims()[1];
-	int w1Height = window1.Dims()[0];
-
-	__m128i orVec = (__m128i)_mm_setzero_ps();
-	int orRest = 0;
-	for (int y = 0; y < w1Height; y++)
-	{
-		int x = 0;
-		for (; x <= w1Width - 4; x += 4)
-			orVec = _mm_or_si128(orVec, _mm_loadu_si128((__m128i*)&window1[y][x]));
-		for (; x < w1Width; x++)
-			orRest |= window1[y][x];
-	}
-	int result = orRest | OrOver32BitInts(&orVec);
-	if (result & 0xFFFF0000)
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "ERROR - you passed in values greater than 2^16 - 1 to the fast SAD code!");
-}
-
-template<> void correlation3<true, int>(JPythonArray2D<int> &window1, JPythonArray2D<int> &window2, JPythonArray2D<double> &result, int maxDX, int maxDY)
-{
-    // Specialized version for SAD with 32-bit data, BUT we assume we will not overflow an int when we sum across a small IW.
-    // This probably implies that it should be used with 16-bit input data, and small IW pixel counts <=2^16 !
-    
-    // For every possible shift of 'a' relative to 'b', calculate the SAD
-    int w1Width = window1.Dims()[1];
-    int w1Height = window1.Dims()[0];
-	
-	Check16BitData(window1);
-	Check16BitData(window2);
-	if (maxDX * maxDY >= (1<<15))
-		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "WOAH - that's a seriously big correlation matrix! This integer-based SAD code only accepts IWs that lead to correlation matrices with up to 2^15 entries.");
-
-	// Now get down to business!
-	for (int dy = 0; dy <= maxDY; dy++)
-        for (int dx = 0; dx <= maxDX; dx++)
-        {
-            double sum = 0;
-            __m128i sumVec = (__m128i)_mm_setzero_ps();
-            for (int y = 0; y < w1Height; y++)
-            {
-                int x = 0;
-                for (; x <= w1Width - 4; x += 4)
-                    sumVec = _mm_add_epi32(sumVec, _mm_abs_epi32(_mm_sub_epi32(_mm_loadu_si128((__m128i*)&window1[y][x]), _mm_loadu_si128((__m128i*)&window2[y+dy][x+dx]))));
-                for (; x < w1Width; x++)
-                    sum += abs(window1[y][x] - window2[y+dy][x+dx]);
-            }
-            sum += SumOver32BitInts(&sumVec);
-            result[dy][dx] = sum;
-        }
+	// This conversion between types is a bit silly, but I now want to convert my python arrays to ImageWindow objects,
+	// since that's a generic type that I use in other code of mine as well.
+	// (The overheads should be negligible compared to the actual calculation)
+	ImageWindow<TYPE> imageWindow1;
+	SetImageWindowForPythonWindow(imageWindow1, window1);
+	ImageWindow<TYPE> imageWindow2;
+	SetImageWindowForPythonWindow(imageWindow2, window2);
+	ImageWindow<double> imageWindowResult;
+	SetImageWindowForPythonWindow(imageWindowResult, result);
+	CrossCorrelateImageWindows<correlationType, TYPE>(imageWindow1, imageWindow2, imageWindowResult);
 }
 
 template<class TYPE> PyObject *correlation2(PyArrayObject *a, PyArrayObject *b, bool sad)
@@ -261,22 +55,36 @@ template<class TYPE> PyObject *correlation2(PyArrayObject *a, PyArrayObject *b, 
         PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Something weird happened with item sizes %d and %d, relative to expected size %d", (int)PyArray_ITEMSIZE(a), (int)PyArray_ITEMSIZE(b), (int)sizeof(TYPE));
         return NULL;
     }
+	
+	// Correlation code assumes the x dimension is contiguous
+	// Note that although it now seems strange to deliberately do something different to how Python does it internally,
+	// I have defined a stride of 1 (not sizeof(TYPE)) to represent contiguous array elements.
+    if (window1.Strides()[1] != 1)
+    {
+        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected array 1 to be contiguous in x s[0]=%ld s[1]=%ld sizeof(type)=%zd itemsize=%ld", window1.Strides()[0], window1.Strides()[1], sizeof(TYPE), PyArray_ITEMSIZE(a));
+        return NULL;
+    }
+    if (window2.Strides()[1] != 1)
+    {
+        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected array 2 to be contiguous in x");
+        return NULL;
+    }
     
     npy_intp output_dims[2] = { maxDY+1, maxDX+1 };
     PyArrayObject *result = (PyArrayObject *)PyArray_SimpleNew(2, output_dims, NPY_DOUBLE);
     JPythonArray2D<double> resultArray(result);
     
     if (sad)
-        correlation3<true>(window1, window2, resultArray, maxDX, maxDY);
+        correlation3<kCorrelationSAD>(window1, window2, resultArray);
     else
-        correlation3<false>(window1, window2, resultArray, maxDX, maxDY);
+        correlation3<kCorrelationSSD>(window1, window2, resultArray);
     return PyArray_Return(result);
 }
 
 extern "C" PyObject *correlation(PyObject *self, PyObject *args, bool sad)
 {
 	// inputs
-	PyArrayObject *a, *b;		// list of coordinates for the input polygons (2d double numpy array)
+	PyArrayObject *a, *b;
 
 	// parse the input arrays from *args
 	if (!PyArg_ParseTuple(args, "O!O!", 
