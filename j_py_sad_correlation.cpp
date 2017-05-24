@@ -132,9 +132,9 @@ extern "C" PyObject *ssd_correlation(PyObject *self, PyObject *args)
 extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
 {
 	// Take the SAD between an image and a set of reference frames.
-	// Parameter 1: a 2D numpy array (MxN) representing a single MxN image.
-	// Parameter 2: a 3D numpy array (AxMxN) representing A separate MxN images.
-	// Result: a 2D numpy array (A) containing the results of the SAD comparisons between parameter 1 and each of the reference images
+	// Parameter 1: a 2D numpy array (MxN) of type 'uint8', representing a single MxN image.
+	// Parameter 2: a 3D numpy array (AxMxN) of type 'uint8', representing A separate MxN images.
+	// Result: a 2D numpy array (A) of type 'float64', containing the results of the SAD comparisons between parameter 1 and each of the reference images
 
 	// parse the input arrays from *args
 	PyArrayObject *a, *b;
