@@ -206,8 +206,29 @@ static PyMethodDef corr_methods[] = {
 
 /* initialisation - register the methods with the Python interpreter */
 
+#if PY_MAJOR_VERSION >= 3
+
+static struct PyModuleDef j_py_sad_correlation =
+{
+    PyModuleDef_HEAD_INIT,
+    "cModPyDem", /* name of module */
+    "",          /* module documentation, may be NULL */
+    -1,          /* size of per-interpreter state of the module, or -1 if the module keeps state in global variables. */
+    corr_methods
+};
+
+PyMODINIT_FUNC PyInit_j_py_sad_correlation(void)
+{
+    import_array();
+    return PyModule_Create(&j_py_sad_correlation);
+}
+
+#else
+
 extern "C" void initj_py_sad_correlation(void)
 {
-	(void) Py_InitModule("j_py_sad_correlation", corr_methods);
-	import_array();
+    (void) Py_InitModule("j_py_sad_correlation", corr_methods);
+    import_array();
 }
+
+#endif

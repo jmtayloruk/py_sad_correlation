@@ -44,12 +44,12 @@ b = np.lib.stride_tricks.as_strided(b2, strides=(largeIWSize2*b2.itemsize, b2.it
 
 start = time.time()
 sad_using_c_code = jps.sad_correlation(a, b)
-print time.time() - start
-print 'sad with c code:', sad_using_c_code
+print (time.time() - start)
+print ('sad with c code:', sad_using_c_code)
 
 # Test SSD calculation
 ssd_using_c_code = jps.ssd_correlation(a, b)
-print 'ssd_using_c_code', ssd_using_c_code
+print ('ssd_using_c_code', ssd_using_c_code)
 
 # Generate SAD result using pure python code, for comparison
 start = time.time()
@@ -59,8 +59,8 @@ sad_using_python_code = np.zeros((b.shape[0] - a.shape[0] + 1, b.shape[1] - a.sh
 for y in range(sad_using_python_code.shape[1]):
 	for x in range(sad_using_python_code.shape[0]):
 		sad_using_python_code[x,y] = sum(sum(abs(a - b[x:x+a.shape[0], y:y+a.shape[1]])))
-print time.time() - start
-print 'sad with python code:', sad_using_python_code
+print (time.time() - start)
+print ('sad with python code:', sad_using_python_code)
 
 # Generate SSD result using pure python code, for comparison
 start = time.time()
@@ -70,8 +70,8 @@ ssd_using_python_code = np.zeros((b.shape[0] - a.shape[0] + 1, b.shape[1] - a.sh
 for y in range(ssd_using_python_code.shape[1]):
 	for x in range(ssd_using_python_code.shape[0]):
 		ssd_using_python_code[x,y] = sum(sum((a - b[x:x+a.shape[0], y:y+a.shape[1]])**2))
-print time.time() - start
-print 'ssd with python code:', ssd_using_python_code
+print (time.time() - start)
+print ('ssd with python code:', ssd_using_python_code)
 
 
 # Test simpler SAD against reference frames
@@ -85,11 +85,11 @@ if (typeToUse == 'uint8'):
 
 	diffs_using_c_code = jps.sad_with_references(a2, b2);
 	diffs_using_python_code = np.sum(np.sum(np.abs(a2.astype('int')-b2.astype('int')), axis=2), axis=1)
-	print "success if these values are all zero:", (diffs_using_python_code - diffs_using_c_code).max(), (diffs_using_python_code - diffs_using_c_code).min()
+	print ("success if these values are all zero:", (diffs_using_python_code - diffs_using_c_code).max(), (diffs_using_python_code - diffs_using_c_code).min())
 else:
-	print 'not testing diffs - you need to specify a type of uint8'
+	print ('not testing diffs - you need to specify a type of uint8')
 
-print "success if these values are all zero:", (sad_using_python_code - sad_using_c_code).max(), (sad_using_python_code - sad_using_c_code).min()
-print "success if these values are all zero:", (ssd_using_python_code - ssd_using_c_code).max(), (ssd_using_python_code - ssd_using_c_code).min()
+print ("success if these values are all zero:", (sad_using_python_code - sad_using_c_code).max(), (sad_using_python_code - sad_using_c_code).min())
+print ("success if these values are all zero:", (ssd_using_python_code - ssd_using_c_code).max(), (ssd_using_python_code - ssd_using_c_code).min())
 
 
