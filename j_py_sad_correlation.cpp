@@ -249,7 +249,7 @@ extern "C" PyObject *sad_grid(PyObject *self, PyObject *args)
 				SetImageWindowForPythonWindow(window2Entry, temp);
 
 				ImageWindow<double> resultWindowEntry;
-				resultWindow.GetWindowOffset(resultWindowEntry, i, j, 1, 1, 1, 1, 1, 1);
+				resultWindow.GetWindowOffset(resultWindowEntry, j, i, 1, 1, 1, 1, 1, 1);
 				CrossCorrelateImageWindows<kCorrelationSAD>(window1Entry, window2Entry, resultWindowEntry);
 
 			}
