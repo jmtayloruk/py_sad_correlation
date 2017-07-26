@@ -43,13 +43,13 @@ template<class TYPE> PyObject *correlation2(PyArrayObject *a, PyArrayObject *b, 
     JPythonArray2D<TYPE> window1(a);
     JPythonArray2D<TYPE> window2(b);
     if (PyErr_Occurred()) return NULL;
-    
+
     if ((window1.NDims() != 2) || (window2.NDims() != 2))
     {
         PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected two 2D arrays as parameters");
         return NULL;
     }
-    
+
     int maxDX = window2.Dims()[1] - window1.Dims()[1];
     int maxDY = window2.Dims()[0] - window1.Dims()[0];
     if ((maxDX < 0) || (maxDY < 0))
@@ -57,13 +57,13 @@ template<class TYPE> PyObject *correlation2(PyArrayObject *a, PyArrayObject *b, 
         PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected second array to be bigger than or equal to first array");
         return NULL;
     }
-	
+
     if ((PyArray_ITEMSIZE(a) != sizeof(TYPE)) || (PyArray_ITEMSIZE(b) != sizeof(TYPE)))
     {
         PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Something weird happened with item sizes %d and %d, relative to expected size %d", (int)PyArray_ITEMSIZE(a), (int)PyArray_ITEMSIZE(b), (int)sizeof(TYPE));
         return NULL;
     }
-	
+
 	// Correlation code assumes the x dimension is contiguous
 	// Note that although it now seems strange to deliberately do something different to how Python does it internally,
 	// I have defined a stride of 1 (not sizeof(TYPE)) to represent contiguous array elements.
@@ -77,11 +77,11 @@ template<class TYPE> PyObject *correlation2(PyArrayObject *a, PyArrayObject *b, 
         PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected array 2 to be contiguous in x");
         return NULL;
     }
-    
+
     npy_intp output_dims[2] = { maxDY+1, maxDX+1 };
     PyArrayObject *result = (PyArrayObject *)PyArray_SimpleNew(2, output_dims, NPY_DOUBLE);
     JPythonArray2D<double> resultArray(result);
-    
+
     if (sad)
         correlation3<kCorrelationSAD>(window1, window2, resultArray);
     else
@@ -95,14 +95,14 @@ extern "C" PyObject *correlation(PyObject *self, PyObject *args, bool sad)
 	PyArrayObject *a, *b;
 
 	// parse the input arrays from *args
-	if (!PyArg_ParseTuple(args, "O!O!", 
-			&PyArray_Type, &a, 
+	if (!PyArg_ParseTuple(args, "O!O!",
+			&PyArray_Type, &a,
 			&PyArray_Type, &b))
 	{
 		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse array!");
 		return NULL;
 	}
-	
+
     if (PyArray_TYPE(a) == ArrayType<double>())
         return correlation2<double>(a, b, sad);
     else if (PyArray_TYPE(a) == ArrayType<unsigned char>())
@@ -145,24 +145,24 @@ extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
 		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse array!");
 		return NULL;
 	}
-	
+
     JPythonArray2D<unsigned char> window1(a);
     JPythonArray3D<unsigned char> refsWindow(b);
     if (PyErr_Occurred()) return NULL;
-    
+
     if ((window1.NDims() != 2) || (refsWindow.NDims() != 3))
     {
         PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected a 2D array and a 3D array as parameters");
         return NULL;
     }
-	
+
 	if ((PyArray_TYPE(a) == ArrayType<unsigned char>()) &&
 		(PyArray_TYPE(b) == ArrayType<unsigned char>()))
 	{
 		// Set up access to our source data
 		ImageWindow<unsigned char> imageWindow1;
 		SetImageWindowForPythonWindow(imageWindow1, window1);
-		
+
 		// Create a result array
 		npy_intp output_dims[1] = { refsWindow.Dims()[0] };
 		PyArrayObject *pythonResult = (PyArrayObject *)PyArray_SimpleNew(1, output_dims, NPY_DOUBLE);
@@ -183,7 +183,7 @@ extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
 			CrossCorrelateImageWindows<kCorrelationSAD>(imageWindow1, refsWindowEntry, resultWindowEntry);
 
 		}
-		
+
 		return PyArray_Return(pythonResult);
 	}
     else
@@ -197,7 +197,7 @@ extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
 /* Define a methods table for the module */
 
 static PyMethodDef corr_methods[] = {
-	{"sad_correlation", sad_correlation, METH_VARARGS},	
+	{"sad_correlation", sad_correlation, METH_VARARGS},
 	{"ssd_correlation", ssd_correlation, METH_VARARGS},
 	{"sad_with_references", sad_with_references, METH_VARARGS},
 	{NULL,NULL} };
