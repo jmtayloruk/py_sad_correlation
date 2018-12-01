@@ -91,7 +91,11 @@ template<class TYPE> PyObject *correlation2(PyArrayObject *a, PyArrayObject *b, 
 
 extern "C" PyObject *correlation(PyObject *self, PyObject *args, bool sad)
 {
-	// inputs
+    // This function takes two parameters, a and b, which should be numpy arrays.
+    // It is expected that b will be larger than a, and an array will be returned
+    // giving the SAD values between b and every possible shifted position of a within b
+
+    // inputs
 	PyArrayObject *a, *b;
 
 	// parse the input arrays from *args
@@ -121,11 +125,17 @@ extern "C" PyObject *correlation(PyObject *self, PyObject *args, bool sad)
 
 extern "C" PyObject *sad_correlation(PyObject *self, PyObject *args)
 {
+    // This function takes two parameters, a and b, which should be numpy arrays.
+    // It is expected that b will be larger than a, and an array will be returned
+    // giving the SAD values between b and every possible shifted position of a within b
 	return correlation(self, args, true);
 }
 
 extern "C" PyObject *ssd_correlation(PyObject *self, PyObject *args)
 {
+    // This function takes two parameters, a and b, which should be numpy arrays.
+    // It is expected that b will be larger than a, and an array will be returned
+    // giving the SAD values between b and every possible shifted position of a within b
 	return correlation(self, args, false);
 }
 
@@ -135,6 +145,7 @@ extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
 	// Parameter 1: a 2D numpy array (MxN) of type 'uint8', representing a single MxN image.
 	// Parameter 2: a 3D numpy array (AxMxN) of type 'uint8', representing A separate MxN images.
 	// Result: a 2D numpy array (A) of type 'float64', containing the results of the SAD comparisons between parameter 1 and each of the reference images
+    // As implied by the above parameter specification, all input arrays should have the same MxN dimensions.
 
 	// parse the input arrays from *args
 	PyArrayObject *a, *b;
@@ -283,7 +294,7 @@ static PyMethodDef corr_methods[] = {
 static struct PyModuleDef j_py_sad_correlation =
 {
     PyModuleDef_HEAD_INIT,
-    "cModPyDem", /* name of module */
+    "j_py_sad_correlation", /* name of module */
     "",          /* module documentation, may be NULL */
     -1,          /* size of per-interpreter state of the module, or -1 if the module keeps state in global variables. */
     corr_methods
