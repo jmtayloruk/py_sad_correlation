@@ -135,7 +135,7 @@ extern "C" PyObject *ssd_correlation(PyObject *self, PyObject *args)
 {
     // This function takes two parameters, a and b, which should be numpy arrays.
     // It is expected that b will be larger than a, and an array will be returned
-    // giving the SAD values between b and every possible shifted position of a within b
+    // giving the SSD values between b and every possible shifted position of a within b
 	return correlation(self, args, false);
 }
 

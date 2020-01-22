@@ -1,0 +1,3 @@
+This module provides a Python module for fast computation of Particle Image Velocimetry (PIV) correlation matrices, evaluated using either the sum-of-absolute-differences (SAD) metric or the sum-of-squared-differences (SSD) metric.
+
+It achieves fast performance by using native C code and vectorised (SSE3) assembly language instructions to calculate the correlation matrices. See j_py_sad_correlation_test.py for demonstration of usage.
