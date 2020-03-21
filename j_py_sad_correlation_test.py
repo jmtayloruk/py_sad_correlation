@@ -59,6 +59,7 @@ print ('  took {0}'.format(time.time() - start))
 ssd_using_c_code = jps.ssd_correlation(a, b)
 print ('ssd_using_c_code gave {0}'.format(ssd_using_c_code))
 
+
 ################# Compute SAD using pure python code, for comparison #################
 start = time.time()
 a = a.astype('int')   # We need to convert to int to avoid encountering overflow issues
@@ -89,7 +90,6 @@ np.random.seed(1)
 if (typeToUse == 'uint8'):
 	a2 = np.random.randint(0, 255, (smallIWSize,smallIWSize)).astype(typeToUse)
 	b2 = np.random.randint(0, 255, (20,smallIWSize,smallIWSize)).astype(typeToUse)
-
 	diffs_using_c_code = jps.sad_with_references(a2, b2);
 	diffs_using_python_code = np.sum(np.sum(np.abs(a2.astype('int')-b2.astype('int')), axis=2), axis=1)
 	print ("success if these values are all zero: {0} {1}".format((diffs_using_python_code - diffs_using_c_code).max(), (diffs_using_python_code - diffs_using_c_code).min()))
