@@ -103,7 +103,7 @@ extern "C" PyObject *correlation(PyObject *self, PyObject *args, bool sad)
 			&PyArray_Type, &a,
 			&PyArray_Type, &b))
 	{
-		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse array!");
+		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
 		return NULL;
 	}
 
@@ -117,8 +117,7 @@ extern "C" PyObject *correlation(PyObject *self, PyObject *args, bool sad)
         return correlation2<int>(a, b, sad);
     else
     {
-		printf("Strides: %d %d\n", (int)PyArray_STRIDES(a)[0], (int)PyArray_STRIDES(a)[1]);
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array type %d passed in", PyArray_TYPE(a));
+        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array type %d (%s) passed in", PyArray_TYPE(a), StringForPythonType(PyArray_TYPE(a)));
         return NULL;
     }
 }
@@ -139,6 +138,46 @@ extern "C" PyObject *ssd_correlation(PyObject *self, PyObject *args)
 	return correlation(self, args, false);
 }
 
+template<class TYPE> PyObject *sad_with_references2(PyArrayObject *a, PyArrayObject *b)
+{
+    JPythonArray2D<TYPE> window1(a);
+    JPythonArray3D<TYPE> refsWindow(b);
+    if (PyErr_Occurred()) return NULL;
+
+    if ((window1.NDims() != 2) || (refsWindow.NDims() != 3))
+    {
+        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected a 2D array and a 3D array as parameters");
+        return NULL;
+    }
+
+    // Set up access to our source data
+    ImageWindow<TYPE> imageWindow1;
+    SetImageWindowForPythonWindow(imageWindow1, window1);
+
+    // Create a result array
+    npy_intp output_dims[1] = { refsWindow.Dims()[0] };
+    PyArrayObject *pythonResult = (PyArrayObject *)PyArray_SimpleNew(1, output_dims, NPY_DOUBLE);
+    JPythonArray1D<double> resultArray(pythonResult);
+    ImageWindow<double> resultWindow;
+    SetImageWindowForPythonWindow(resultWindow, resultArray);
+
+    // Iterate over the reference images, performing a comparison with each one
+    for (int i = 0; i < refsWindow.Dims()[0]; i++)
+    {
+        // Set up ImageWindows for our input and output arrays
+        ImageWindow<TYPE> refsWindowEntry;
+        JPythonArray2D<TYPE> temp = refsWindow[i];
+        SetImageWindowForPythonWindow(refsWindowEntry, temp);
+        ImageWindow<double> resultWindowEntry;
+        resultWindow.GetWindowOffset(resultWindowEntry, i, 0, 1, 1, 1, 1, 1, 1);
+        // Make use of the cross-correlation function that already exists for PIV
+        CrossCorrelateImageWindows<kCorrelationSAD>(imageWindow1, refsWindowEntry, resultWindowEntry);
+
+    }
+
+    return PyArray_Return(pythonResult);
+}
+
 extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
 {
 	// Take the SAD between an image and a set of reference frames.
@@ -153,54 +192,23 @@ extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
 						  &PyArray_Type, &a,
 						  &PyArray_Type, &b))
 	{
-		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse array!");
+		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
 		return NULL;
 	}
 
-    JPythonArray2D<unsigned char> window1(a);
-    JPythonArray3D<unsigned char> refsWindow(b);
-    if (PyErr_Occurred()) return NULL;
-
-    if ((window1.NDims() != 2) || (refsWindow.NDims() != 3))
+    if (PyArray_TYPE(a) != PyArray_TYPE(b))
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected a 2D array and a 3D array as parameters");
+        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Mismatched array types %d (%s) and %d (%s) passed in", PyArray_TYPE(a), StringForPythonType(PyArray_TYPE(a)), PyArray_TYPE(b), StringForPythonType(PyArray_TYPE(b)));
         return NULL;
     }
-
-	if ((PyArray_TYPE(a) == ArrayType<unsigned char>()) &&
-		(PyArray_TYPE(b) == ArrayType<unsigned char>()))
-	{
-		// Set up access to our source data
-		ImageWindow<unsigned char> imageWindow1;
-		SetImageWindowForPythonWindow(imageWindow1, window1);
-
-		// Create a result array
-		npy_intp output_dims[1] = { refsWindow.Dims()[0] };
-		PyArrayObject *pythonResult = (PyArrayObject *)PyArray_SimpleNew(1, output_dims, NPY_DOUBLE);
-		JPythonArray1D<double> resultArray(pythonResult);
-		ImageWindow<double> resultWindow;
-		SetImageWindowForPythonWindow(resultWindow, resultArray);
-
-		// Iterate over the reference images, performing a comparison with each one
-		for (int i = 0; i < refsWindow.Dims()[0]; i++)
-		{
-			// Set up ImageWindows for our input and output arrays
-			ImageWindow<unsigned char> refsWindowEntry;
-			JPythonArray2D<unsigned char> temp = refsWindow[i];
-			SetImageWindowForPythonWindow(refsWindowEntry, temp);
-			ImageWindow<double> resultWindowEntry;
-			resultWindow.GetWindowOffset(resultWindowEntry, i, 0, 1, 1, 1, 1, 1, 1);
-			// Make use of the cross-correlation function that already exists for PIV
-			CrossCorrelateImageWindows<kCorrelationSAD>(imageWindow1, refsWindowEntry, resultWindowEntry);
-
-		}
-
-		return PyArray_Return(pythonResult);
-	}
+    
+    if (PyArray_TYPE(a) == ArrayType<unsigned char>())
+        return sad_with_references2<unsigned char>(a, b);
+    else if (PyArray_TYPE(a) == ArrayType<unsigned short>())
+        return sad_with_references2<unsigned short>(a, b);
     else
     {
-		printf("Strides: %d %d\n", (int)PyArray_STRIDES(a)[0], (int)PyArray_STRIDES(a)[1]);
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array types %d and %d passed in", PyArray_TYPE(a), PyArray_TYPE(b));
+        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array type %d (%s) passed in", PyArray_TYPE(a), StringForPythonType(PyArray_TYPE(a)));
         return NULL;
     }
 }
@@ -218,7 +226,7 @@ extern "C" PyObject *sad_grid(PyObject *self, PyObject *args)
 						  &PyArray_Type, &a,
 						  &PyArray_Type, &b))
 	{
-		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse array!");
+		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
 		return NULL;
 	}
 
