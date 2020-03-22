@@ -27,7 +27,10 @@ j_py_sad_correlation = Extension('j_py_sad_correlation',
 	include_dirs = ['/usr/local/include', numpy.get_include()],
 	sources = ['j_py_sad_correlation.cpp', 'common/jPythonArray.cpp', 'common/jPythonCommon.cpp', 'common/PIVImageWindow.cpp', 'common/jAssert.cpp', 'common/DebugPrintf_Unix.cpp'],
 	extra_link_args = ARCH,
-	extra_compile_args = ['-O4', '-mssse3'] + ARCH
+    # Note: -O4 emits a warning saying it's deprecated (and equivalent to -O3), so I just set -O3 here
+    extra_compile_args = ['-O3', '-mssse3'] + ARCH
+    # Enable this to test without any vector extensions
+    #extra_compile_args = ['-O3', '-mno-sse', '-mno-sse2', '-mno-sse3', '-mno-ssse3'] + ARCH
 )
 BUILD_MODULES.append(j_py_sad_correlation)
 

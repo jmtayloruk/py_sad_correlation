@@ -52,8 +52,9 @@ b = np.lib.stride_tricks.as_strided(b2, strides=(largeIWSize2*b2.itemsize, b2.it
 ################# Call my module to compute the SAD #################
 start = time.time()
 sad_using_c_code = jps.sad_correlation(a, b)
+end = time.time()
 print ('sad with c code gave {0}'.format(sad_using_c_code))
-print ('  took {0}'.format(time.time() - start))
+print ('  took {0}'.format(end - start))
 
 ################# Call my module to compute the SSD #################
 ssd_using_c_code = jps.ssd_correlation(a, b)
@@ -68,8 +69,9 @@ sad_using_python_code = np.zeros((b.shape[0] - a.shape[0] + 1, b.shape[1] - a.sh
 for y in range(sad_using_python_code.shape[1]):
 	for x in range(sad_using_python_code.shape[0]):
 		sad_using_python_code[x,y] = sum(sum(abs(a - b[x:x+a.shape[0], y:y+a.shape[1]])))
+end = time.time()
 print ('sad with python code: {0}'.format(sad_using_python_code))
-print ('  took {0}'.format(time.time() - start))
+print ('  took {0}'.format(end - start))
 
 ################# Compute SSD using pure python code, for comparison #################
 start = time.time()
@@ -79,9 +81,9 @@ ssd_using_python_code = np.zeros((b.shape[0] - a.shape[0] + 1, b.shape[1] - a.sh
 for y in range(ssd_using_python_code.shape[1]):
 	for x in range(ssd_using_python_code.shape[0]):
 		ssd_using_python_code[x,y] = sum(sum((a - b[x:x+a.shape[0], y:y+a.shape[1]])**2))
-print (time.time() - start)
+end = time.time()
 print ('ssd with python code: {0}'.format(ssd_using_python_code))
-print ('  took {0}'.format(time.time() - start))
+print ('  took {0}'.format(end - start))
 
 ################# Test a simpler calculation that this module can also perform #################
 # Although not actually PIV-specific, this module can also calculate the SAD between one image and a second array of multiple images
