@@ -95,29 +95,38 @@ PyObject *correlation(PyObject *self, PyObject *args, bool sad)
     // It is expected that b will be larger than a, and an array will be returned
     // giving the SAD values between b and every possible shifted position of a within b
 
-    // inputs
-	PyArrayObject *a, *b;
-
-	// parse the input arrays from *args
-	if (!PyArg_ParseTuple(args, "O!O!",
-			&PyArray_Type, &a,
-			&PyArray_Type, &b))
-	{
-		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
-		return NULL;
-	}
-
-    if (PyArray_TYPE(a) == ArrayType<double>())
-        return correlation2<double>(a, b, sad);
-    else if (PyArray_TYPE(a) == ArrayType<unsigned char>())
-        return correlation2<unsigned char>(a, b, sad);
-    else if (PyArray_TYPE(a) == ArrayType<unsigned short>())
-        return correlation2<unsigned short>(a, b, sad);
-    else if (PyArray_TYPE(a) == ArrayType<int>())
-        return correlation2<int>(a, b, sad);
-    else
+    try
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array type %d (%s) passed in", PyArray_TYPE(a), StringForPythonType(PyArray_TYPE(a)));
+        // inputs
+        PyArrayObject *a, *b;
+
+        // parse the input arrays from *args
+        if (!PyArg_ParseTuple(args, "O!O!",
+                &PyArray_Type, &a,
+                &PyArray_Type, &b))
+        {
+            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
+            return NULL;
+        }
+
+        if (PyArray_TYPE(a) == ArrayType<double>())
+            return correlation2<double>(a, b, sad);
+        else if (PyArray_TYPE(a) == ArrayType<unsigned char>())
+            return correlation2<unsigned char>(a, b, sad);
+        else if (PyArray_TYPE(a) == ArrayType<unsigned short>())
+            return correlation2<unsigned short>(a, b, sad);
+        else if (PyArray_TYPE(a) == ArrayType<int>())
+            return correlation2<int>(a, b, sad);
+        else
+        {
+            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array type %d (%s) passed in", PyArray_TYPE(a), StringForPythonType(PyArray_TYPE(a)));
+            return NULL;
+        }
+    }
+    catch (const std::invalid_argument& e)
+    {
+        // Presumably an error with python arrays not matching expectations.
+        // The python exception will have already been set, so we just have to return NULL.
         return NULL;
     }
 }
@@ -260,24 +269,33 @@ extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
 	// Result: a 2D numpy array (A) of type 'float64', containing the results of the SAD comparisons between parameter 1 and each of the reference images
     // As implied by the above parameter specification, all input arrays should have the same MxN dimensions.
 
-	// parse the input arrays from *args
-    PyArrayObject   *a;
-    PyObject        *b;
-	if (!PyArg_ParseTuple(args, "O!O",
-						  &PyArray_Type, &a,
-						  &b))
-	{
-		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
-		return NULL;
-	}
-    
-    if (PyArray_TYPE(a) == ArrayType<unsigned char>())
-        return sad_with_references2<unsigned char>(a, b);
-    else if (PyArray_TYPE(a) == ArrayType<unsigned short>())
-        return sad_with_references2<unsigned short>(a, b);
-    else
+    try
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array type %d (%s) passed in", PyArray_TYPE(a), StringForPythonType(PyArray_TYPE(a)));
+        // parse the input arrays from *args
+        PyArrayObject   *a;
+        PyObject        *b;
+        if (!PyArg_ParseTuple(args, "O!O",
+                              &PyArray_Type, &a,
+                              &b))
+        {
+            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
+            return NULL;
+        }
+        
+        if (PyArray_TYPE(a) == ArrayType<unsigned char>())
+            return sad_with_references2<unsigned char>(a, b);
+        else if (PyArray_TYPE(a) == ArrayType<unsigned short>())
+            return sad_with_references2<unsigned short>(a, b);
+        else
+        {
+            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array type %d (%s) passed in", PyArray_TYPE(a), StringForPythonType(PyArray_TYPE(a)));
+            return NULL;
+        }
+    }
+    catch (const std::invalid_argument& e)
+    {
+        // Presumably an error with python arrays not matching expectations.
+        // The python exception will have already been set, so we just have to return NULL.
         return NULL;
     }
 }
@@ -289,66 +307,75 @@ extern "C" PyObject *sad_grid(PyObject *self, PyObject *args)
 	// Parameter 2: a 3D numpy array (AxMxN) of type 'uint8', representing A MxN images.
 	// Result: a 2D numpy array (A) of type 'float', containing the results of the SAD comparisons
 
-	// parse the input arrays from *args
-	PyArrayObject *a, *b;
-	if (!PyArg_ParseTuple(args, "O!O!",
-						  &PyArray_Type, &a,
-						  &PyArray_Type, &b))
-	{
-		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
-		return NULL;
-	}
-
-    JPythonArray3D<unsigned char> window1(a);
-    JPythonArray3D<unsigned char> window2(b);
-    if (PyErr_Occurred()) return NULL;
-
-    if ((window1.NDims() != 3) || (window2.NDims() != 3))
+    try
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected a 3D array and a 3D array as parameters");
-        return NULL;
+        // parse the input arrays from *args
+        PyArrayObject *a, *b;
+        if (!PyArg_ParseTuple(args, "O!O!",
+                              &PyArray_Type, &a,
+                              &PyArray_Type, &b))
+        {
+            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
+            return NULL;
+        }
+
+        JPythonArray3D<unsigned char> window1(a);
+        JPythonArray3D<unsigned char> window2(b);
+        if (PyErr_Occurred()) return NULL;
+
+        if ((window1.NDims() != 3) || (window2.NDims() != 3))
+        {
+            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected a 3D array and a 3D array as parameters");
+            return NULL;
+        }
+
+        if ((PyArray_TYPE(a) == ArrayType<unsigned char>()) &&
+            (PyArray_TYPE(b) == ArrayType<unsigned char>()))
+        {
+
+            // Create a result array
+            npy_intp output_dims[2] = { window2.Dims()[0],window1.Dims()[0] };
+            PyArrayObject *pythonResult = (PyArrayObject *)PyArray_SimpleNew(2, output_dims, NPY_DOUBLE);
+            JPythonArray2D<double> resultArray(pythonResult);
+            ImageWindow<double> resultWindow;
+            SetImageWindowForPythonWindow(resultWindow, resultArray);
+
+            // Iterate over Seq1 images, performing a comparison with each one
+            for (int j = 0; j < window1.Dims()[0]; j++)
+            {
+                // Set up ImageWindows for our seq1 arrays
+                ImageWindow<unsigned char> window1Entry;
+                JPythonArray2D<unsigned char> temp = window1[j];
+                SetImageWindowForPythonWindow(window1Entry, temp);
+
+                // Iterate over Seq2 images, performing a comparison with each one
+                for (int i = 0; i < window2.Dims()[0]; i++)
+                {
+                    // Set up ImageWindows for our seq2 arrays
+                    ImageWindow<unsigned char> window2Entry;
+                    JPythonArray2D<unsigned char> temp = window2[i];
+                    SetImageWindowForPythonWindow(window2Entry, temp);
+
+                    ImageWindow<double> resultWindowEntry;
+                    resultWindow.GetWindowOffset(resultWindowEntry, j, i, 1, 1, 1, 1, 1, 1);
+                    CrossCorrelateImageWindows<kCorrelationSAD>(window1Entry, window2Entry, resultWindowEntry);
+
+                }
+            }
+
+            return PyArray_Return(pythonResult);
+        }
+        else
+        {
+            printf("Strides: %d %d\n", (int)PyArray_STRIDES(a)[0], (int)PyArray_STRIDES(a)[1]);
+            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array types %d and %d passed in", PyArray_TYPE(a), PyArray_TYPE(b));
+            return NULL;
+        }
     }
-
-	if ((PyArray_TYPE(a) == ArrayType<unsigned char>()) &&
-		(PyArray_TYPE(b) == ArrayType<unsigned char>()))
-	{
-
-		// Create a result array
-		npy_intp output_dims[2] = { window2.Dims()[0],window1.Dims()[0] };
-		PyArrayObject *pythonResult = (PyArrayObject *)PyArray_SimpleNew(2, output_dims, NPY_DOUBLE);
-		JPythonArray2D<double> resultArray(pythonResult);
-		ImageWindow<double> resultWindow;
-		SetImageWindowForPythonWindow(resultWindow, resultArray);
-
-		// Iterate over Seq1 images, performing a comparison with each one
-		for (int j = 0; j < window1.Dims()[0]; j++)
-		{
-			// Set up ImageWindows for our seq1 arrays
-			ImageWindow<unsigned char> window1Entry;
-			JPythonArray2D<unsigned char> temp = window1[j];
-			SetImageWindowForPythonWindow(window1Entry, temp);
-
-			// Iterate over Seq2 images, performing a comparison with each one
-			for (int i = 0; i < window2.Dims()[0]; i++)
-			{
-				// Set up ImageWindows for our seq2 arrays
-				ImageWindow<unsigned char> window2Entry;
-				JPythonArray2D<unsigned char> temp = window2[i];
-				SetImageWindowForPythonWindow(window2Entry, temp);
-
-				ImageWindow<double> resultWindowEntry;
-				resultWindow.GetWindowOffset(resultWindowEntry, j, i, 1, 1, 1, 1, 1, 1);
-				CrossCorrelateImageWindows<kCorrelationSAD>(window1Entry, window2Entry, resultWindowEntry);
-
-			}
-		}
-
-		return PyArray_Return(pythonResult);
-	}
-    else
+    catch (const std::invalid_argument& e)
     {
-		printf("Strides: %d %d\n", (int)PyArray_STRIDES(a)[0], (int)PyArray_STRIDES(a)[1]);
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array types %d and %d passed in", PyArray_TYPE(a), PyArray_TYPE(b));
+        // Presumably an error with python arrays not matching expectations.
+        // The python exception will have already been set, so we just have to return NULL.
         return NULL;
     }
 }
