@@ -89,7 +89,7 @@ template<class TYPE> PyObject *correlation2(PyArrayObject *a, PyArrayObject *b, 
     return PyArray_Return(result);
 }
 
-extern "C" PyObject *correlation(PyObject *self, PyObject *args, bool sad)
+PyObject *correlation(PyObject *self, PyObject *args, bool sad)
 {
     // This function takes two parameters, a and b, which should be numpy arrays.
     // It is expected that b will be larger than a, and an array will be returned
@@ -138,15 +138,20 @@ extern "C" PyObject *ssd_correlation(PyObject *self, PyObject *args)
 	return correlation(self, args, false);
 }
 
-template<class TYPE> PyObject *sad_with_references2(PyArrayObject *a, PyArrayObject *b)
+template<class TYPE> PyObject *sad_with_references_array(JPythonArray2D<TYPE> &window1, PyArrayObject *b)
 {
-    JPythonArray2D<TYPE> window1(a);
     JPythonArray3D<TYPE> refsWindow(b);
     if (PyErr_Occurred()) return NULL;
-
-    if ((window1.NDims() != 2) || (refsWindow.NDims() != 3))
+    if (refsWindow.NDims() != 3)
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected a 2D array and a 3D array as parameters");
+        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected a 3D array as the second parameter");
+        return NULL;
+    }
+    if (window1.ArrayType() != PyArray_TYPE(b))
+    {
+        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Mismatched array types %d (%s) and %d (%s) passed in",
+                                                                                    window1.ArrayType(), StringForPythonType(window1.ArrayType()),
+                                                                                    PyArray_TYPE(b), StringForPythonType(PyArray_TYPE(b)));
         return NULL;
     }
 
@@ -178,6 +183,75 @@ template<class TYPE> PyObject *sad_with_references2(PyArrayObject *a, PyArrayObj
     return PyArray_Return(pythonResult);
 }
 
+template<class TYPE> PyObject *sad_with_references_list(JPythonArray2D<TYPE> &window1, PyObject *b)
+{
+    /*  This function is mostly a duplicate of sad_with_references_array above,
+        but there was not an obvious way to combine them into one to avoid code duplication */
+    
+    // Set up access to our source data
+    ImageWindow<TYPE> imageWindow1;
+    SetImageWindowForPythonWindow(imageWindow1, window1);
+    
+    // Create a result array
+    npy_intp output_dims[1] = { PyList_Size(b) };
+    PyArrayObject *pythonResult = (PyArrayObject *)PyArray_SimpleNew(1, output_dims, NPY_DOUBLE);
+    JPythonArray1D<double> resultArray(pythonResult);
+    ImageWindow<double> resultWindow;
+    SetImageWindowForPythonWindow(resultWindow, resultArray);
+    
+    // Iterate over the reference images, performing a comparison with each one
+    for (int i = 0; i < PyList_Size(b); i++)
+    {
+        // Set up ImageWindows for our input and output arrays
+        // Note that the construction of thisRef would automatically check that the array type matches TYPE,
+        // but we explicitly check first, to be able to give a more informative error message
+        PyArrayObject *item = (PyArrayObject *)PyList_GetItem(b, i);
+        if (!PyArray_Check(item))
+        {
+            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Reference #%d is not a 2D python array (it is a %s)", i, ((PyObject *)item)->ob_type->tp_name);
+            return NULL;
+        }
+        int elementType = PyArray_TYPE(item);
+        if (window1.ArrayType() != elementType)
+        {
+            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Mismatched array types %d (%s) and %d (%s) for reference #%d",
+                         window1.ArrayType(), StringForPythonType(window1.ArrayType()),
+                         elementType, StringForPythonType(elementType),
+                         i);
+            return NULL;
+        }
+        JPythonArray2D<TYPE> thisRef(PyList_GetItem(b, i));
+        if (PyErr_Occurred()) return NULL;
+        
+
+        ImageWindow<TYPE> refsWindowEntry;
+        SetImageWindowForPythonWindow(refsWindowEntry, thisRef);
+        ImageWindow<double> resultWindowEntry;
+        resultWindow.GetWindowOffset(resultWindowEntry, i, 0, 1, 1, 1, 1, 1, 1);
+        // Make use of the cross-correlation function that already exists for PIV
+        CrossCorrelateImageWindows<kCorrelationSAD>(imageWindow1, refsWindowEntry, resultWindowEntry);
+        
+    }
+    
+    return PyArray_Return(pythonResult);
+}
+
+template<class TYPE> PyObject *sad_with_references2(PyArrayObject *a, PyObject *b)
+{
+    JPythonArray2D<TYPE> window1(a);
+    if (PyErr_Occurred()) return NULL;
+
+    if (PyList_Check(b))
+        return sad_with_references_list(window1, (PyObject *)b);
+    else if (PyArray_Check(b))
+        return sad_with_references_array(window1, (PyArrayObject *)b);
+    else
+    {
+        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsupported reference list type (%s)", b->ob_type->tp_name);
+        return NULL;
+    }
+}
+
 extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
 {
 	// Take the SAD between an image and a set of reference frames.
@@ -187,20 +261,15 @@ extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
     // As implied by the above parameter specification, all input arrays should have the same MxN dimensions.
 
 	// parse the input arrays from *args
-	PyArrayObject *a, *b;
-	if (!PyArg_ParseTuple(args, "O!O!",
+    PyArrayObject   *a;
+    PyObject        *b;
+	if (!PyArg_ParseTuple(args, "O!O",
 						  &PyArray_Type, &a,
-						  &PyArray_Type, &b))
+						  &b))
 	{
 		PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
 		return NULL;
 	}
-
-    if (PyArray_TYPE(a) != PyArray_TYPE(b))
-    {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Mismatched array types %d (%s) and %d (%s) passed in", PyArray_TYPE(a), StringForPythonType(PyArray_TYPE(a)), PyArray_TYPE(b), StringForPythonType(PyArray_TYPE(b)));
-        return NULL;
-    }
     
     if (PyArray_TYPE(a) == ArrayType<unsigned char>())
         return sad_with_references2<unsigned char>(a, b);

@@ -19,8 +19,15 @@ else:
     print("Valid types are uint8, uint16")
     exit(1);	# Nothing else currently supported.
 
+# Do fast C-based SAD calculation on a 3D reference array
 diffs_using_c_code = jps.sad_with_references(a2, b2);
 #print(diffs_using_c_code)
+
+# Do fast C-based SAD calculation on a list of 2D images
+diffs_using_c_code_list = jps.sad_with_references(a2, list(b2))
+#print(diffs_using_c_code_list)
+
+# Do longhand Python calculation for comparison
 diffs_using_python_code = np.sum(np.sum(np.abs(a2.astype('float')-b2.astype('float')), axis=2), axis=1)
 #print(diffs_using_python_code)
 
@@ -51,4 +58,5 @@ else:
           
 
 print ("success if these values are all zero:", (diffs_using_python_code - diffs_using_c_code).max(), (diffs_using_python_code - diffs_using_c_code).min())
+print ("success if these values are all zero:", (diffs_using_python_code - diffs_using_c_code_list).max(), (diffs_using_python_code - diffs_using_c_code_list).min())
 print ("success if these values are all zero:", (diffs_using_python_code2 - diffs_using_c_code2).max(), (diffs_using_python_code2 - diffs_using_c_code2).min())
