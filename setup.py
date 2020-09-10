@@ -20,6 +20,10 @@ result = os.system(theString)
 if result != 0:
     ARCH = []
 
+# Add this flag when building on a raspberry pi
+if platform.machine().startswith("arm"):
+    ARCH = ARCH + ["-mfpu=neon"]
+
 
 def get_extra_build_options():
     # This function is cribbed from the source code for the 'dlib' module (a random module I found on the internet that does this!)
