@@ -2,8 +2,8 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include "common/jAssert.h"
 #include "common/PIVImageWindow.h"
-#include "Python.h"
-#include "numpy/arrayobject.h"
+#include <Python.h>
+#include <numpy/arrayobject.h>
 #include "common/jPythonCommon.h"
 
 template<class TYPE> void SetImageWindowForPythonWindow(ImageWindow<TYPE> &imageWindow, JPythonArray2D<TYPE> &pythonWindow)
