@@ -53,8 +53,6 @@ def get_extra_build_options():
 
 extra_compile_args = get_extra_build_options()
 
-BUILD_MODULES = []
-
 j_py_sad_correlation = Extension(
     "j_py_sad_correlation",
     include_dirs=["/usr/local/include", numpy.get_include()],
@@ -74,12 +72,24 @@ j_py_sad_correlation = Extension(
     # Enable this to test on Intel platforms without any vector extensions
     # extra_compile_args = ['-O3', '-mno-sse', '-mno-sse2', '-mno-sse3', '-mno-ssse3'] + ARCH
 )
-BUILD_MODULES.append(j_py_sad_correlation)
 
-setup(
-    name="j_py_sad_correlation",
-    version="1.0.0",
-    description="High-performance functions for calculating sum-of-absolute-differences in Python.",
-    author="Jonathan M Taylor",
-    ext_modules=BUILD_MODULES,
-)
+if platform.system() == "Windows":
+    # Currently the JPS C code does not compile on Windows.
+    # One issue is that I need to get the vector support figured out for the Windows compiler
+    # For now, all I can do is fall back to the pure-python implementation
+    setup(
+          name="j_py_sad_correlation",
+          version="1.0.0w",
+          description="High-performance functions for calculating sum-of-absolute-differences in Python.",
+          author="Jonathan M Taylor",
+          packages=["j_py_sad_correlation"],
+          package_dir={"j_py_sad_correlation": "py-sad-correlation"},
+      )
+else:
+    setup(
+        name="j_py_sad_correlation",
+        version="1.0.0",
+        description="High-performance functions for calculating sum-of-absolute-differences in Python.",
+        author="Jonathan M Taylor",
+        ext_modules=[j_py_sad_correlation]
+    )
