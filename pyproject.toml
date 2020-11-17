@@ -1,3 +1,8 @@
 [build-system]
-requires = ["setuptools", "numpy"]
+requires = [
+    "setuptools",
+    # Work around a serious bug on Windows (http://tinyurl.com/y3dm3h86)
+    "numpy == 1.19.3; sys_platform == 'win32'",
+    "numpy; sys_platform != 'win32'"
+]
 build-backend = "setuptools.build_meta:__legacy__"
