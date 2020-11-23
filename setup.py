@@ -3,16 +3,18 @@ import numpy  # So we can work out where the numpy headers live!
 import platform
 import os, sys
 
+ARCH = []
 if platform.platform().startswith("Windows"):
-    # Note that I do not enable any vector extensions.
+    # Note that I do not enable any vector extensions on Windows.
     # To enable AVX, I would include "/aarch:AVX".
     # Note that I'm not sure if there's a way to say "use the best vector instruction set that's available".
     # For now I don't have any custom vector code that compiles on Windows (because I haven't worked out how to code it!),
     # but it's possible that enabling "/aarch:AVX" would allow compiler auto-vectorization that might speed things up a bit.
     platform_specific_compile_args = ["/O2", "/std:c++17"]
 else:
+    # Note: -O4 emits a warning saying it's deprecated (and equivalent to -O3), so I just set -O3 here
     if True:
-        platform_specific_compile_args = ["-O3", "-march=native", "-fno-lax-vector-conversions"]
+        platform_specific_compile_args = ["-O3", "-march=native", "-fno-lax-vector-conversions", "-stdlib=libc++", "-mmacosx-version-min=10.9"]
     else:
         # Note: enable this instead, to test on Intel platforms without any vector extensions
         platform_specific_compile_args = ["-O3", "-mno-sse", "-mno-sse2", "-mno-sse3", "-mno-ssse3"]
@@ -84,7 +86,6 @@ j_py_sad_correlation = Extension(
         "common/DebugPrintf_Unix.cpp",
     ],
     extra_link_args=ARCH,
-    # Note: -O4 emits a warning saying it's deprecated (and equivalent to -O3), so I just set -O3 here
     extra_compile_args=extra_command_line_compile_args+platform_specific_compile_args
 )
 
