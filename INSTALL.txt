@@ -3,8 +3,10 @@ To compile and install the j_py_sad_correlation module, run the following comman
 	git submodule update
 	python setup.py build <args>
 	python setup.py install
+Or install direct from github using e.g. 
+	pip install --user -e git+https://bitbucket.org/jmtaylor/py_sad_correlation.git#egg=j_py_sad_correlation
 
-To build on intel platforms, <args> should be replaced with: --compiler-flags -mssse3
-  (or, actually, it may well default to that and therefore no compiler flags are required)
-To build on ARM platforms, <args> should be replaced with: --compiler-flags "-mfpu=neon"
+When building on intel platforms, we automatically apply the compiler flag "-march=native" , which should enable all the vector instructions that are available on the host machine.
+
+When building on ARM platforms, we automatically apply the compiler flag "-mfpu=neon". That is required on the raspberry pi. If we ever build on other ARM platforms where the neon instruction set might not be available, we may need to rethink how we handle this flag.
 
