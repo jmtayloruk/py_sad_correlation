@@ -14,12 +14,15 @@ if platform.platform().startswith("Windows"):
 else:
     # Note: -O4 emits a warning saying it's deprecated (and equivalent to -O3), so I just set -O3 here
     if True:
-        platform_specific_compile_args = ["-O3", "-march=native", "-fno-lax-vector-conversions", "-stdlib=libc++", "-mmacosx-version-min=10.9"]
+        platform_specific_compile_args = ["-O3", "-march=native", "-fno-lax-vector-conversions"]
     else:
         # Note: enable this instead, to test on Intel platforms without any vector extensions
         platform_specific_compile_args = ["-O3", "-mno-sse", "-mno-sse2", "-mno-sse3", "-mno-ssse3"]
 
 if platform.platform().startswith("Darwin"):
+    # Extra options for Mac OS
+    platform_specific_compile_args += ["-stdlib=libc++", "-mmacosx-version-min=10.9"]
+    
     # Work out if we should be building a 32 or 64 bit library
     # Apparently this "can be a bit fragile" on OS X:
     # http://stackoverflow.com/questions/1405913/how-do-i-determine-if-my-python-shell-is-executing-in-32bit-or-64bit-mode-on-os
