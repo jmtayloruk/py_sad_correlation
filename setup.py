@@ -16,7 +16,11 @@ else:
     if True:
         platform_specific_compile_args = ["-O3", "-march=native", "-fno-lax-vector-conversions"]
     else:
-        # Note: enable this instead, to test on Intel platforms without any vector extensions
+        # Note: this was intended to be available as an alternative, to test on Intel platforms without any vector extensions
+        # However note that, on my macbook pro at least, I encounter problems of "SSE register return with SSE disabled",
+        # which seems to be related to the fact that all 64-bit processors have at least SSE2, and the compiler is
+        # not expecting to have *nothing* at all to work with. I thought I had got this to work on other platforms, though,
+        # so I will leave it here as an option for now.
         platform_specific_compile_args = ["-O3", "-mno-sse", "-mno-sse2", "-mno-sse3", "-mno-ssse3"]
 
 if platform.platform().startswith("Darwin"):
