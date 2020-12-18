@@ -20,18 +20,23 @@ largeIWSize2 = largeIWSize + 10
 
 
 verbose = False
+printPerformance = False
 typesToUse = []
+allTypes = ['uint8', 'uint16', 'int32']
 for arg in sys.argv[1:]:
     if arg == '-v':
         verbose = True
+        printPerformance = True
+    elif arg == '-p':
+        printPerformance = True
     elif arg == 'all':
-        typesToUse += ['uint8', 'uint16', 'int32']
+        typesToUse += allTypes
     else:
         typesToUse.append(arg)
 
 if (len(typesToUse) == 0):
-    print("Run with one or more arguments specifying the data type for the arrays (optional -v to print intermediate results)")
-    exit(1)
+    print("No data types specified - will test all (n.b. use optional -v to print intermediate results, or -p to print performance timings)")
+    typesToUse += allTypes
 
 def ReportError(typeToUse, description, result1, result2):
     success = np.all(result1 == result2)
@@ -44,6 +49,8 @@ def ReportError(typeToUse, description, result1, result2):
 
 failureCount = 0
 for typeToUse in typesToUse:
+    print("Testing {0}:".format(typeToUse))
+
     ################# Generate test data #################
     # Generate two arrays containing random integers
     np.random.seed(1)
@@ -70,44 +77,48 @@ for typeToUse in typesToUse:
     b = np.lib.stride_tricks.as_strided(b2, strides=(largeIWSize2*b2.itemsize, b2.itemsize), shape=(largeIWSize, largeIWSize) )
 
     ################# Call my module to compute the SAD #################
-    start = time.time()
+    start = time.perf_counter()
     sad_using_c_code = jps.sad_correlation(a, b)
-    end = time.time()
+    end = time.perf_counter()
     if verbose:
-        print('sad with c code gave {0}'.format(sad_using_c_code))
-        print('  took {0}'.format(end - start))
+        print(' sad with c code: {0}'.format(sad_using_c_code))
+    if printPerformance:
+        print(' sad with c code took {0}'.format(end - start))
 
     ################# Call my module to compute the SSD #################
+    start = time.perf_counter()
     ssd_using_c_code = jps.ssd_correlation(a, b)
+    end = time.perf_counter()
     if verbose:
-        print('ssd_using_c_code gave {0}'.format(ssd_using_c_code))
+        print(' ssd with c code: {0}'.format(ssd_using_c_code))
+        print(' ssd with c code took {0}'.format(end - start))
 
 
     ################# Compute SAD using pure python code, for comparison #################
-    start = time.time()
+    start = time.perf_counter()
     a = a.astype('int64')   # We need to convert to [signed] int64 to avoid encountering overflow issues in this python code
     b = b.astype('int64')
     sad_using_python_code = np.zeros((b.shape[0] - a.shape[0] + 1, b.shape[1] - a.shape[1] + 1))
     for y in range(sad_using_python_code.shape[1]):
         for x in range(sad_using_python_code.shape[0]):
             sad_using_python_code[x,y] = np.sum(abs(a - b[x:x+a.shape[0], y:y+a.shape[1]]))
-    end = time.time()
+    end = time.perf_counter()
     if verbose:
-        print('sad with python code: {0}'.format(sad_using_python_code))
-        print('  took {0}'.format(end - start))
+        print(' sad with python code: {0}'.format(sad_using_python_code))
+        print(' sad with python code took {0}'.format(end - start))
 
     ################# Compute SSD using pure python code, for comparison #################
-    start = time.time()
+    start = time.perf_counter()
     a = a.astype('int64')   # We need to convert to [signed] int64 to avoid encountering overflow issues
     b = b.astype('int64')
     ssd_using_python_code = np.zeros((b.shape[0] - a.shape[0] + 1, b.shape[1] - a.shape[1] + 1))
     for y in range(ssd_using_python_code.shape[1]):
         for x in range(ssd_using_python_code.shape[0]):
             ssd_using_python_code[x,y] = np.sum(((a - b[x:x+a.shape[0], y:y+a.shape[1]])**2))
-    end = time.time()
+    end = time.perf_counter()
     if verbose:
-        print('ssd with python code: {0}'.format(ssd_using_python_code))
-        print('  took {0}'.format(end - start))
+        print(' ssd with python code: {0}'.format(ssd_using_python_code))
+        print(' ssd with python code took {0}'.format(end - start))
 
     ################# Test a simpler calculation that this module can also perform #################
     # Although not actually PIV-specific, this module can also calculate the SAD between one image and a second array of multiple images
@@ -119,8 +130,8 @@ for typeToUse in typesToUse:
         diffs_using_c_code = jps.sad_with_references(a2, b2);
         diffs_using_python_code = np.sum(np.sum(np.abs(a2.astype('int')-b2.astype('int')), axis=2), axis=1)
         if verbose:
-            print('ref frame diffs with c code: {0}'.format(diffs_using_c_code))
-            print('ref frame diffs with python code: {0}'.format(diffs_using_python_code))
+            print(' ref frame diffs with c code: {0}'.format(diffs_using_c_code))
+            print(' ref frame diffs with python code: {0}'.format(diffs_using_python_code))
         failureCount += ReportError(typeToUse, "Ref frame", diffs_using_c_code, diffs_using_python_code)
     elif verbose:
         print('Not testing diffs - that is only implemented for data type uint8')
