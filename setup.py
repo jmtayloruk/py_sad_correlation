@@ -5,12 +5,10 @@ import os, sys
 
 ARCH = []
 if platform.platform().startswith("Windows"):
-    # Note that I do not enable any vector extensions on Windows.
-    # To enable AVX, I would include "/aarch:AVX".
-    # Note that I'm not sure if there's a way to say "use the best vector instruction set that's available".
-    # For now I don't have any custom vector code that compiles on Windows (because I haven't worked out how to code it!),
-    # but it's possible that enabling "/aarch:AVX" would allow compiler auto-vectorization that might speed things up a bit.
-    platform_specific_compile_args = ["/O2", "/std:c++17"]
+    # Note that I'm not sure if there's a way to say "use the best vector instruction set that's available",
+    # so I just specify AVX at the moment. That covers everything I need for this code, and that should be
+    # available on *most* machines we would want to compile on, I think.
+    platform_specific_compile_args = ["/O2", "/aarch:AVX", "/std:c++17"]
 else:
     # Note: -O4 emits a warning saying it's deprecated (and equivalent to -O3), so I just set -O3 here
     if True:

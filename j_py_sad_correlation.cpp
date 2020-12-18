@@ -9,17 +9,17 @@
 template<class TYPE> void SetImageWindowForPythonWindow(ImageWindow<TYPE> &imageWindow, JPythonArray2D<TYPE> &pythonWindow)
 {
 	imageWindow.baseAddr = pythonWindow.Data();
-	imageWindow.width = pythonWindow.Dims()[1];
-	imageWindow.height = pythonWindow.Dims()[0];
-	imageWindow.elementsPerRow = pythonWindow.Strides()[0];
+	imageWindow.width = (int)pythonWindow.Dims()[1];
+	imageWindow.height = (int)pythonWindow.Dims()[0];
+	imageWindow.elementsPerRow = (int)pythonWindow.Strides()[0];
 }
 
 template<class TYPE> void SetImageWindowForPythonWindow(ImageWindow<TYPE> &imageWindow, JPythonArray1D<TYPE> &pythonWindow)
 {
 	imageWindow.baseAddr = pythonWindow.Data();
-	imageWindow.width = pythonWindow.Dims()[0];
+	imageWindow.width = (int)pythonWindow.Dims()[0];
 	imageWindow.height = 1;
-	imageWindow.elementsPerRow = pythonWindow.Dims()[0];
+	imageWindow.elementsPerRow = (int)pythonWindow.Dims()[0];
 }
 
 template<int correlationType, class TYPE> void correlation3(JPythonArray2D<TYPE> &window1, JPythonArray2D<TYPE> &window2, JPythonArray2D<double> &result)
@@ -50,8 +50,8 @@ template<class TYPE> PyObject *correlation2(PyArrayObject *a, PyArrayObject *b, 
         return NULL;
     }
 
-    int maxDX = window2.Dims()[1] - window1.Dims()[1];
-    int maxDY = window2.Dims()[0] - window1.Dims()[0];
+    npy_intp maxDX = window2.Dims()[1] - window1.Dims()[1];
+    npy_intp maxDY = window2.Dims()[0] - window1.Dims()[0];
     if ((maxDX < 0) || (maxDY < 0))
     {
         PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected second array to be bigger than or equal to first array");
@@ -123,7 +123,7 @@ PyObject *correlation(PyObject *self, PyObject *args, bool sad)
             return NULL;
         }
     }
-    catch (const std::invalid_argument& e)
+    catch (const std::invalid_argument& /*e*/)
     {
         // Presumably an error with python arrays not matching expectations.
         // The python exception will have already been set, so we just have to return NULL.
@@ -292,7 +292,7 @@ extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
             return NULL;
         }
     }
-    catch (const std::invalid_argument& e)
+    catch (const std::invalid_argument& /*e*/)
     {
         // Presumably an error with python arrays not matching expectations.
         // The python exception will have already been set, so we just have to return NULL.
@@ -372,7 +372,7 @@ extern "C" PyObject *sad_grid(PyObject *self, PyObject *args)
             return NULL;
         }
     }
-    catch (const std::invalid_argument& e)
+    catch (const std::invalid_argument& /*e*/)
     {
         // Presumably an error with python arrays not matching expectations.
         // The python exception will have already been set, so we just have to return NULL.
