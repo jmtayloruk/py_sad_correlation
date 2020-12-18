@@ -8,7 +8,7 @@ if platform.platform().startswith("Windows"):
     # Note that I'm not sure if there's a way to say "use the best vector instruction set that's available",
     # so I just specify AVX at the moment. That covers everything I need for this code, and that should be
     # available on *most* machines we would want to compile on, I think.
-    platform_specific_compile_args = ["/O2", "/aarch:AVX", "/std:c++17"]
+    platform_specific_compile_args = ["/O2", "/arch:AVX", "/std:c++17"]
 else:
     # Note: -O4 emits a warning saying it's deprecated (and equivalent to -O3), so I just set -O3 here
     if True:
