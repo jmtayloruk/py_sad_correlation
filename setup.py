@@ -8,18 +8,19 @@ if platform.platform().startswith("Windows"):
     # Note that I'm not sure if there's a way to say "use the best vector instruction set that's available",
     # so I just specify AVX at the moment. That covers everything I need for this code, and that should be
     # available on *most* machines we would want to compile on, I think.
-    platform_specific_compile_args = ["/O2", "/arch:AVX", "/std:c++17"]
+    platform_specific_compile_args = ["/O2", "/FIPython.h", "/FIpyerrors.h", "/arch:AVX", "/std:c++17"]
 else:
     # Note: -O4 emits a warning saying it's deprecated (and equivalent to -O3), so I just set -O3 here
     if True:
-        platform_specific_compile_args = ["-O3", "-march=native", "-fno-lax-vector-conversions"]
+        platform_specific_compile_args = ["-O3", "-include", "Python.h", "-include", "pyerrors.h", "-march=native", "-fno-lax-vector-conversions"]
     else:
         # Note: this was intended to be available as an alternative, to test on Intel platforms without any vector extensions
         # However note that, on my macbook pro at least, I encounter problems of "SSE register return with SSE disabled",
         # which seems to be related to the fact that all 64-bit processors have at least SSE2, and the compiler is
         # not expecting to have *nothing* at all to work with. I thought I had got this to work on other platforms, though,
         # so I will leave it here as an option for now.
-        platform_specific_compile_args = ["-O3", "-mno-sse", "-mno-sse2", "-mno-sse3", "-mno-ssse3"]
+        # Also, disabling just [s]sse3 is enough to disable the vectorised SAD calculations
+        platform_specific_compile_args = ["-O3", "-include", "Python.h", "-include", "pyerrors.h", "-mno-sse", "-mno-sse2", "-mno-sse3", "-mno-ssse3"]
 
 if platform.platform().startswith("Darwin"):
     # Extra options for Mac OS

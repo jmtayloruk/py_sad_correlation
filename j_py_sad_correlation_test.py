@@ -12,8 +12,8 @@ import time
 import sys
 
 # Size of the small and large IWs that will be tested with my code
-smallIWSize = 32
-largeIWSize = 64
+smallIWSize = 240
+largeIWSize = 250
 # Option to have the backing arrays larger, to test correct handling of strides
 smallIWSize2 = smallIWSize + 10
 largeIWSize2 = largeIWSize + 10
@@ -126,12 +126,17 @@ for typeToUse in typesToUse:
     np.random.seed(1)
     if (typeToUse == 'uint8'):
         a2 = np.random.randint(0, 255, (smallIWSize,smallIWSize)).astype(typeToUse)
-        b2 = np.random.randint(0, 255, (20,smallIWSize,smallIWSize)).astype(typeToUse)
+        b2 = np.random.randint(0, 255, (80,smallIWSize,smallIWSize)).astype(typeToUse)
+        start = time.perf_counter()
         diffs_using_c_code = jps.sad_with_references(a2, b2);
+        middle = time.perf_counter()
         diffs_using_python_code = np.sum(np.sum(np.abs(a2.astype('int')-b2.astype('int')), axis=2), axis=1)
+        end = time.perf_counter()
         if verbose:
             print(' ref frame diffs with c code: {0}'.format(diffs_using_c_code))
             print(' ref frame diffs with python code: {0}'.format(diffs_using_python_code))
+            print(' ref frame diffs with c code took: {0}'.format(middle-start))
+            print(' ref frame diffs with python code: {0}'.format(end-middle))
         failureCount += ReportError(typeToUse, "Ref frame", diffs_using_c_code, diffs_using_python_code)
     elif verbose:
         print('Not testing diffs - that is only implemented for data type uint8')
