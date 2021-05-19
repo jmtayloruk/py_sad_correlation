@@ -106,6 +106,7 @@ for typeToUse in typesToUse:
     if verbose:
         print(' sad with python code: {0}'.format(sad_using_python_code))
         print(' sad with python code took {0}'.format(end - start))
+    failureCount += ReportError(typeToUse, "SAD", sad_using_c_code, sad_using_python_code)
 
     ################# Compute SSD using pure python code, for comparison #################
     start = time.perf_counter()
@@ -119,6 +120,7 @@ for typeToUse in typesToUse:
     if verbose:
         print(' ssd with python code: {0}'.format(ssd_using_python_code))
         print(' ssd with python code took {0}'.format(end - start))
+    failureCount += ReportError(typeToUse, "SSD", ssd_using_c_code, ssd_using_python_code)
 
     ################# Test a simpler calculation that this module can also perform #################
     # Although not actually PIV-specific, this module can also calculate the SAD between one image and a second array of multiple images
@@ -141,8 +143,19 @@ for typeToUse in typesToUse:
     elif verbose:
         print('Not testing diffs - that is only implemented for data type uint8')
 
-    failureCount += ReportError(typeToUse, "SAD", sad_using_c_code, sad_using_python_code)
-    failureCount += ReportError(typeToUse, "SSD", ssd_using_c_code, ssd_using_python_code)
+    ################# Test error-catching #################
+    for i in range(2):
+        ok = False
+        try:
+            if i == 0:
+                _ = jps.sad_correlation(np.zeros((10,10,3))[...,0], np.zeros((10,10)))
+            elif i == 1:
+                _ = jps.sad_correlation(np.zeros((10,10)), np.zeros((10,10,2))[...,0])
+            print('FAILED to raise error on incorrect input')
+            failureCount += 1
+        except TypeError as e:
+            print('Correctly raised error:', e)
+            ok = True
 
 if failureCount > 0:
     print("ERRORS OCCURRED DURING TESTING!")

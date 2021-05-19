@@ -46,7 +46,7 @@ template<class TYPE> PyObject *correlation2(PyArrayObject *a, PyArrayObject *b, 
 
     if ((window1.NDims() != 2) || (window2.NDims() != 2))
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected two 2D arrays as parameters");
+        PyErr_Format(PyExc_TypeError, "Expected two 2D arrays as parameters");
         return NULL;
     }
 
@@ -54,27 +54,27 @@ template<class TYPE> PyObject *correlation2(PyArrayObject *a, PyArrayObject *b, 
     npy_intp maxDY = window2.Dims()[0] - window1.Dims()[0];
     if ((maxDX < 0) || (maxDY < 0))
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected second array to be bigger than or equal to first array");
+        PyErr_Format(PyExc_TypeError, "Expected second array to be bigger than or equal to first array");
         return NULL;
     }
 
     if ((PyArray_ITEMSIZE(a) != sizeof(TYPE)) || (PyArray_ITEMSIZE(b) != sizeof(TYPE)))
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Something weird happened with item sizes %d and %d, relative to expected size %d", (int)PyArray_ITEMSIZE(a), (int)PyArray_ITEMSIZE(b), (int)sizeof(TYPE));
+        PyErr_Format(PyExc_TypeError, "Something weird happened with item sizes %d and %d, relative to expected size %d", (int)PyArray_ITEMSIZE(a), (int)PyArray_ITEMSIZE(b), (int)sizeof(TYPE));
         return NULL;
     }
 
 	// Correlation code assumes the x dimension is contiguous
 	// Note that although it now seems strange to deliberately do something different to how Python does it internally,
-	// I have defined a stride of 1 (not sizeof(TYPE)) to represent contiguous array elements.
+	// my array wrapper has defined a stride of 1 (not sizeof(TYPE)) to represent contiguous array elements.
     if (window1.Strides()[1] != 1)
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected array 1 to be contiguous in x s[0]=%ld s[1]=%ld sizeof(type)=%zd itemsize=%ld", window1.Strides()[0], window1.Strides()[1], sizeof(TYPE), PyArray_ITEMSIZE(a));
+        PyErr_Format(PyExc_TypeError, "Expected array 1 to be contiguous in x s[0]=%ld s[1]=%ld sizeof(type)=%zd itemsize=%ld", window1.Strides()[0], window1.Strides()[1], sizeof(TYPE), PyArray_ITEMSIZE(a));
         return NULL;
     }
     if (window2.Strides()[1] != 1)
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected array 2 to be contiguous in x");
+        PyErr_Format(PyExc_TypeError, "Expected array 2 to be contiguous in x");
         return NULL;
     }
 
@@ -105,7 +105,7 @@ PyObject *correlation(PyObject *self, PyObject *args, bool sad)
                 &PyArray_Type, &a,
                 &PyArray_Type, &b))
         {
-            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
+            PyErr_Format(PyExc_TypeError, "Unable to parse input parameters!");
             return NULL;
         }
 
@@ -119,7 +119,7 @@ PyObject *correlation(PyObject *self, PyObject *args, bool sad)
             return correlation2<int>(a, b, sad);
         else
         {
-            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array type %d (%s) passed in", PyArray_TYPE(a), StringForPythonType(PyArray_TYPE(a)));
+            PyErr_Format(PyExc_TypeError, "Unsuitable array type %d (%s) passed in", PyArray_TYPE(a), StringForPythonType(PyArray_TYPE(a)));
             return NULL;
         }
     }
@@ -153,12 +153,12 @@ template<class TYPE> PyObject *sad_with_references_array(JPythonArray2D<TYPE> &w
     if (PyErr_Occurred()) return NULL;
     if (refsWindow.NDims() != 3)
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected a 3D array as the second parameter");
+        PyErr_Format(PyExc_TypeError, "Expected a 3D array as the second parameter");
         return NULL;
     }
     if (window1.ArrayType() != PyArray_TYPE(b))
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Mismatched array types %d (%s) and %d (%s) passed in",
+        PyErr_Format(PyExc_TypeError, "Mismatched array types %d (%s) and %d (%s) passed in",
                                                                                     window1.ArrayType(), StringForPythonType(window1.ArrayType()),
                                                                                     PyArray_TYPE(b), StringForPythonType(PyArray_TYPE(b)));
         return NULL;
@@ -217,13 +217,13 @@ template<class TYPE> PyObject *sad_with_references_list(JPythonArray2D<TYPE> &wi
         PyArrayObject *item = (PyArrayObject *)PyList_GetItem(b, i);
         if (!PyArray_Check(item))
         {
-            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Reference #%d is not a 2D python array (it is a %s)", i, ((PyObject *)item)->ob_type->tp_name);
+            PyErr_Format(PyExc_TypeError, "Reference #%d is not a 2D python array (it is a %s)", i, ((PyObject *)item)->ob_type->tp_name);
             return NULL;
         }
         int elementType = PyArray_TYPE(item);
         if (window1.ArrayType() != elementType)
         {
-            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Mismatched array types %d (%s) and %d (%s) for reference #%d",
+            PyErr_Format(PyExc_TypeError, "Mismatched array types %d (%s) and %d (%s) for reference #%d",
                          window1.ArrayType(), StringForPythonType(window1.ArrayType()),
                          elementType, StringForPythonType(elementType),
                          i);
@@ -256,7 +256,7 @@ template<class TYPE> PyObject *sad_with_references2(PyArrayObject *a, PyObject *
         return sad_with_references_array(window1, (PyArrayObject *)b);
     else
     {
-        PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsupported reference list type (%s)", b->ob_type->tp_name);
+        PyErr_Format(PyExc_TypeError, "Unsupported reference list type (%s)", b->ob_type->tp_name);
         return NULL;
     }
 }
@@ -278,7 +278,7 @@ extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
                               &PyArray_Type, &a,
                               &b))
         {
-            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
+            PyErr_Format(PyExc_TypeError, "Unable to parse input parameters!");
             return NULL;
         }
         
@@ -288,7 +288,7 @@ extern "C" PyObject *sad_with_references(PyObject *self, PyObject *args)
             return sad_with_references2<unsigned short>(a, b);
         else
         {
-            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array type %d (%s) passed in", PyArray_TYPE(a), StringForPythonType(PyArray_TYPE(a)));
+            PyErr_Format(PyExc_TypeError, "Unsuitable array type %d (%s) passed in", PyArray_TYPE(a), StringForPythonType(PyArray_TYPE(a)));
             return NULL;
         }
     }
@@ -315,7 +315,7 @@ extern "C" PyObject *sad_grid(PyObject *self, PyObject *args)
                               &PyArray_Type, &a,
                               &PyArray_Type, &b))
         {
-            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unable to parse input parameters!");
+            PyErr_Format(PyExc_TypeError, "Unable to parse input parameters!");
             return NULL;
         }
 
@@ -325,7 +325,7 @@ extern "C" PyObject *sad_grid(PyObject *self, PyObject *args)
 
         if ((window1.NDims() != 3) || (window2.NDims() != 3))
         {
-            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Expected a 3D array and a 3D array as parameters");
+            PyErr_Format(PyExc_TypeError, "Expected a 3D array and a 3D array as parameters");
             return NULL;
         }
 
@@ -368,7 +368,7 @@ extern "C" PyObject *sad_grid(PyObject *self, PyObject *args)
         else
         {
             printf("Strides: %d %d\n", (int)PyArray_STRIDES(a)[0], (int)PyArray_STRIDES(a)[1]);
-            PyErr_Format(PyErr_NewException((char*)"exceptions.TypeError", NULL, NULL), "Unsuitable array types %d and %d passed in", PyArray_TYPE(a), PyArray_TYPE(b));
+            PyErr_Format(PyExc_TypeError, "Unsuitable array types %d and %d passed in", PyArray_TYPE(a), PyArray_TYPE(b));
             return NULL;
         }
     }
