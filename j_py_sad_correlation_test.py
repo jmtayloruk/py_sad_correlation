@@ -126,7 +126,7 @@ for typeToUse in typesToUse:
     # Although not actually PIV-specific, this module can also calculate the SAD between one image and a second array of multiple images
     # Test simpler SAD against reference frames
     np.random.seed(1)
-    if (typeToUse == 'uint8'):
+    if (typeToUse != 'int32'):
         a2 = np.random.randint(0, 255, (smallIWSize,smallIWSize)).astype(typeToUse)
         b2 = np.random.randint(0, 255, (80,smallIWSize,smallIWSize)).astype(typeToUse)
         start = time.perf_counter()
@@ -144,18 +144,28 @@ for typeToUse in typesToUse:
         print('Not testing diffs - that is only implemented for data type uint8')
 
     ################# Test error-catching #################
-    for i in range(2):
-        ok = False
+    for i in range(4):
         try:
+            skipThisTest = False
             if i == 0:
-                _ = jps.sad_correlation(np.zeros((10,10,3))[...,0], np.zeros((10,10)))
+                _ = jps.sad_correlation(np.zeros((10,10,3)).astype(typeToUse)[...,0], np.zeros((10,10)).astype(typeToUse))
             elif i == 1:
-                _ = jps.sad_correlation(np.zeros((10,10)), np.zeros((10,10,2))[...,0])
-            print('FAILED to raise error on incorrect input')
-            failureCount += 1
+                _ = jps.sad_correlation(np.zeros((10,10)).astype(typeToUse), np.zeros((10,10,2)).astype(typeToUse)[...,0])
+            elif (i == 2):
+                if (typeToUse == 'int32'):
+                    skipThisTest = True
+                else:
+                    _ = jps.sad_with_references(np.zeros((10,10,2)).astype(typeToUse)[...,0], np.zeros((80,10,10)).astype(typeToUse))
+            elif (i == 3):
+                if (typeToUse == 'int32'):
+                    skipThisTest = True
+                else:
+                    _ = jps.sad_with_references(np.zeros((10,10)).astype(typeToUse), np.zeros((80,10,10,2)).astype(typeToUse)[...,0])
+            if not skipThisTest:
+                print(' FAILED to raise error on incorrect input')
+                failureCount += 1
         except TypeError as e:
-            print('Correctly raised error:', e)
-            ok = True
+            print(' correctly raised error:', e)
 
 if failureCount > 0:
     print("ERRORS OCCURRED DURING TESTING!")

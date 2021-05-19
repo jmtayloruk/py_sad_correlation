@@ -69,7 +69,7 @@ template<class TYPE> PyObject *correlation2(PyArrayObject *a, PyArrayObject *b, 
 	// my array wrapper has defined a stride of 1 (not sizeof(TYPE)) to represent contiguous array elements.
     if (window1.Strides()[1] != 1)
     {
-        PyErr_Format(PyExc_TypeError, "Expected array 1 to be contiguous in x s[0]=%ld s[1]=%ld sizeof(type)=%zd itemsize=%ld", window1.Strides()[0], window1.Strides()[1], sizeof(TYPE), PyArray_ITEMSIZE(a));
+        PyErr_Format(PyExc_TypeError, "Expected array 1 to be contiguous in x (s[0]=%ld s[1]=%ld sizeof(type)=%zd itemsize=%ld)", window1.Strides()[0], window1.Strides()[1], sizeof(TYPE), PyArray_ITEMSIZE(a));
         return NULL;
     }
     if (window2.Strides()[1] != 1)
@@ -175,6 +175,12 @@ template<class TYPE> PyObject *sad_with_references_array(JPythonArray2D<TYPE> &w
     ImageWindow<double> resultWindow;
     SetImageWindowForPythonWindow(resultWindow, resultArray);
 
+    if (refsWindow.Strides()[2] != 1)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected reference array to be contiguous in x");
+        return NULL;
+    }
+
     // Iterate over the reference images, performing a comparison with each one
     for (int i = 0; i < refsWindow.Dims()[0]; i++)
     {
@@ -232,6 +238,11 @@ template<class TYPE> PyObject *sad_with_references_list(JPythonArray2D<TYPE> &wi
         JPythonArray2D<TYPE> thisRef(PyList_GetItem(b, i));
         if (PyErr_Occurred()) return NULL;
         
+        if (thisRef.Strides()[1] != 1)
+        {
+            PyErr_Format(PyExc_TypeError, "Expected reference array element %d to be contiguous in x", i);
+            return NULL;
+        }
 
         ImageWindow<TYPE> refsWindowEntry;
         SetImageWindowForPythonWindow(refsWindowEntry, thisRef);
@@ -249,6 +260,12 @@ template<class TYPE> PyObject *sad_with_references2(PyArrayObject *a, PyObject *
 {
     JPythonArray2D<TYPE> window1(a);
     if (PyErr_Occurred()) return NULL;
+
+    if (window1.Strides()[1] != 1)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected array 1 to be contiguous in x (s[0]=%ld s[1]=%ld sizeof(type)=%zd itemsize=%ld)", window1.Strides()[0], window1.Strides()[1], sizeof(TYPE), PyArray_ITEMSIZE(a));
+        return NULL;
+    }
 
     if (PyList_Check(b))
         return sad_with_references_list(window1, (PyObject *)b);
