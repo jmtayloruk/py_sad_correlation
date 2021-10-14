@@ -9,6 +9,11 @@ if platform.platform().startswith("Windows"):
     # so I just specify AVX at the moment. That covers everything I need for this code, and that should be
     # available on *most* machines we would want to compile on, I think.
     platform_specific_compile_args = ["/O2", "/FIPython.h", "/FIpyerrors.h", "/arch:AVX", "/std:c++17"]
+elif platform.platform().startswith("macOS") and ("arm" in platform.platform()):
+    # Apple M1 chips don't (currently) support -march=native, which is annoying.
+    # Apparently apple-a14 is the best substitute, although that's not entirely future-proof.
+    # JT: temporarily removed the "-march=apple-a14" specifier
+    platform_specific_compile_args = ["-O3", "-include", "Python.h", "-include", "pyerrors.h", "-fno-lax-vector-conversions"]
 else:
     # Note: -O4 emits a warning saying it's deprecated (and equivalent to -O3), so I just set -O3 here
     if True:
@@ -24,29 +29,30 @@ else:
         # Also note that disabling just [s]sse3 is enough to disable the vectorised SAD calculations
         platform_specific_compile_args = ["-O3", "-include", "Python.h", "-include", "pyerrors.h", "-mno-sse", "-mno-sse2", "-mno-sse3", "-mno-ssse3"]
 
-if platform.platform().startswith("Darwin"):
+if platform.platform().startswith("Darwin") or platform.platform().startswith("macOS"):
     # Extra options for Mac OS
     platform_specific_compile_args += ["-stdlib=libc++", "-mmacosx-version-min=10.9"]
     
-    # Work out if we should be building a 32 or 64 bit library
-    # Apparently this "can be a bit fragile" on OS X:
-    # http://stackoverflow.com/questions/1405913/how-do-i-determine-if-my-python-shell-is-executing-in-32bit-or-64bit-mode-on-os
-    # but I'll try it and see if it works out ok for now.
-    archInfo = platform.architecture()
-    if archInfo[0] == "32bit":
-        ARCH = ["-arch", "i386"]
-    else:
-        ARCH = ["-arch", "x86_64"]
+    if not "arm" in platform.platform():
+        # Work out if we should be building a 32 or 64 bit library
+        # Apparently this "can be a bit fragile" on OS X:
+        # http://stackoverflow.com/questions/1405913/how-do-i-determine-if-my-python-shell-is-executing-in-32bit-or-64bit-mode-on-os
+        # but I'll try it and see if it works out ok for now.
+        archInfo = platform.architecture()
+        if archInfo[0] == "32bit":
+            ARCH = ["-arch", "i386"]
+        else:
+            ARCH = ["-arch", "x86_64"]
 
-    # Determine if the -arch parameter is actually even available on this platform,
-    # by running a dummy gcc command that includes that option
-    # If it is not, then we will not include any arch-related options at all for gcc.
-    # (note that this code may be redundant now that I only generate the above -arch command on OS X)
-    theString = "gcc " + ARCH[0] + " " + ARCH[1] + " -E -dM - < /dev/null > /dev/null 2>&1"
-    result = os.system(theString)
-    if result != 0:
-        ARCH = []
-    platform_specific_compile_args += ARCH
+        # Determine if the -arch parameter is actually even available on this platform,
+        # by running a dummy gcc command that includes that option
+        # If it is not, then we will not include any arch-related options at all for gcc.
+        # (note that this code may be redundant now that I only generate the above -arch command on OS X)
+        theString = "gcc " + ARCH[0] + " " + ARCH[1] + " -E -dM - < /dev/null > /dev/null 2>&1"
+        result = os.system(theString)
+        if result != 0:
+            ARCH = []
+        platform_specific_compile_args += ARCH
 
 
 # Add this flag, which is essential when building on a raspberry pi
