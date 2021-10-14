@@ -15,11 +15,13 @@ else:
         platform_specific_compile_args = ["-O3", "-include", "Python.h", "-include", "pyerrors.h", "-march=native", "-fno-lax-vector-conversions"]
     else:
         # Note: this was intended to be available as an alternative, to test on Intel platforms without any vector extensions
-        # However note that, on my macbook pro at least, I encounter problems of "SSE register return with SSE disabled",
+        # However note that, on my macbook pro at least, I encounter a compile error of "SSE register return with SSE disabled",
         # which seems to be related to the fact that all 64-bit processors have at least SSE2, and the compiler is
-        # not expecting to have *nothing* at all to work with. I thought I had got this to work on other platforms, though,
-        # so I will leave it here as an option for now.
-        # Also, disabling just [s]sse3 is enough to disable the vectorised SAD calculations
+        # not expecting to have *nothing* at all to work with.
+        # I thought I had got this to work on other platforms, though, so I will leave it here as an option for now.
+        # However, I now hit that compile error on my mac pro, on beag-shuil and on brutha,
+        # so I'm not sure where (if anywhere) this alternative actually works
+        # Also note that disabling just [s]sse3 is enough to disable the vectorised SAD calculations
         platform_specific_compile_args = ["-O3", "-include", "Python.h", "-include", "pyerrors.h", "-mno-sse", "-mno-sse2", "-mno-sse3", "-mno-ssse3"]
 
 if platform.platform().startswith("Darwin"):
