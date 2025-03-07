@@ -53,11 +53,10 @@ if platform.platform().startswith("Darwin") or platform.platform().startswith("m
         if result != 0:
             ARCH = []
         platform_specific_compile_args += ARCH
-
-
-# Add this flag, which is essential when building on a raspberry pi
-if platform.machine().startswith("arm"):
-    platform_specific_compile_args += ["-mfpu=neon"]
+else:
+    # Add this flag, which is essential when building on a raspberry pi
+    if platform.machine().startswith("arm"):
+        platform_specific_compile_args += ["-mfpu=neon"]
 
 
 def get_extra_build_options():
